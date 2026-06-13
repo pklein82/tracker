@@ -70,6 +70,8 @@
   .etas{font-family:'Oswald';font-weight:600;font-size:12px;color:var(--muted);margin-top:3px}
   .etac.ki{box-shadow:inset 0 0 0 1px rgba(43,192,196,.3)}
   .etac.ki .etav{color:var(--swim)}
+  .etac.ist{box-shadow:inset 0 0 0 1px rgba(255,59,48,.45)}
+  .etac.ist .etav{color:var(--live)}
   .statusline{padding:0 16px 14px;font-size:14px;color:var(--text)}
   .statusline span{color:var(--muted)}
   .bar{height:6px;background:var(--surface2);border-radius:99px;margin:0 16px 16px;overflow:hidden}
@@ -216,10 +218,7 @@
         </div>
         <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
       </div>
-      <div class="eta">
-        <div class="etac pl"><div class="etak">Soll (Plan)</div><div class="etav num" id="etaTotalPlan">—</div><div class="etas num" id="etaClockPlan">—</div></div>
-        <div class="etac ki"><div class="etak">Soll (KI)</div><div class="etav num" id="etaTotalKi">—</div><div class="etas num" id="etaClockKi">—</div></div>
-      </div>
+      <div class="eta" id="eta"></div>
       <div class="statusline" id="statusline">—</div>
       <div class="bar"><i id="barfill" style="background:var(--swim)"></i></div>
     </div>
@@ -563,11 +562,17 @@ function render(){
   let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
 
-  // prominenter ETA-Block: Rennzeit groß, Ziel-Uhrzeit klein – für Soll (Plan) und Soll (KI)
-  $('etaTotalPlan').textContent=hms(T.FINISH.hrPlan);
-  $('etaClockPlan').textContent='Ziel '+clockFromStart(T.FINISH.hrPlan);
-  $('etaTotalKi').textContent=hms(T.FINISH.hrIst);
-  $('etaClockKi').textContent='Ziel '+clockFromStart(T.FINISH.hrIst);
+  // ETA-Block oben: im Ziel -> Ist-Ergebnis, sonst Soll (Plan) + Soll (KI)
+  const eta=$('eta');
+  if(eta){
+    if(T.FINISH.reached){
+      eta.innerHTML=`<div class="etac ist"><div class="etak">Ergebnis · im Ziel</div><div class="etav num">${hms(T.FINISH.hrIst)}</div><div class="etas num">Ziel ${clockFromStart(T.FINISH.hrIst)}</div></div>`;
+    } else {
+      eta.innerHTML=
+        `<div class="etac pl"><div class="etak">Soll (Plan)</div><div class="etav num">${hms(T.FINISH.hrPlan)}</div><div class="etas num">Ziel ${clockFromStart(T.FINISH.hrPlan)}</div></div>`+
+        `<div class="etac ki"><div class="etak">Soll (KI)</div><div class="etav num">${hms(T.FINISH.hrIst)}</div><div class="etas num">Ziel ${clockFromStart(T.FINISH.hrIst)}</div></div>`;
+    }
+  }
 
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
