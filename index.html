@@ -486,7 +486,9 @@ function computeTimes(ms){
     }
   }
   const mpkIst=[plan[0],plan[1],mpkBike||plan[2],plan[3],mpkRun||plan[4]];
-  const res={_base:baseIst};
+  // echte Zwischenzeit vorhanden? (Start zählt nicht – sonst zeigt der Sim sofort eine Differenz)
+  const hasIst = ms.some(x=>x.id!=='START' && istMinOf(x.id)!=null);
+  const res={_base:baseIst, _hasIst:hasIst};
   ms.forEach(x=>{
     const v=istMinOf(x.id), reached=v!=null;
     res[x.id]={
@@ -573,7 +575,7 @@ function render(){
       const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
       // Abweichung zum ursprünglichen Plan (Soll) – erst sobald es eine Ist-Zeit gibt
       let delta='&nbsp;';
-      if(col!=='plan' && T._base!=null){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
+      if(col!=='plan' && T._hasIst){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
         <div class="ct num">${clockFromStart(v)}</div>
