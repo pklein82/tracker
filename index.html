@@ -312,8 +312,9 @@ let state = {
   actuals:{},          // id -> "HH:MM"  (manuell, hat Vorrang) – Referenz auf actualsByAthlete[athlete]
   actualsByAthlete:{}, // athlete -> {id:"HH:MM"}
   live:{ url:'https://tracker.paul-kleinrath.workers.dev', event:'IRM-AUSTRIA-2026', bib:'RD8XEHJF', on:true },
-  liveActuals:{},  // id -> "HH:MM" (automatisch gemappt)
-  liveSplits:[]    // letzter Roh-Snapshot {label,tod,net}
+  liveActuals:{},  // id -> "HH:MM" (automatisch gemappt, aktueller Athlet)
+  liveByAthlete:{},// athlete -> {actuals, splits} – alle werden gepollt
+  liveSplits:[]    // letzter Roh-Snapshot {label,tod,net} (aktueller Athlet)
 };
 let pollTimer=null;
 
@@ -343,7 +344,9 @@ function applyAthlete(key, clearLive){
   state.live.bib=a.pid||'';
   if(!state.actualsByAthlete[key]) state.actualsByAthlete[key]={};
   state.actuals=state.actualsByAthlete[key];
-  if(clearLive){ state.liveActuals={}; state.liveSplits=[]; }
+  const cache=state.liveByAthlete&&state.liveByAthlete[key]; // Live-Daten aus dem Cache übernehmen
+  state.liveActuals=(cache&&cache.actuals)||{};
+  state.liveSplits=(cache&&cache.splits)||[];
 }
 async function selectAthlete(key){
   if(key===state.athlete) return;
@@ -483,6 +486,7 @@ async function load(){
   if(s){ state=Object.assign(state,s);
     state.actualsByAthlete=s.actualsByAthlete||{};
     state.live=Object.assign({url:'https://tracker.paul-kleinrath.workers.dev',event:'IRM-AUSTRIA-2026',bib:'RD8XEHJF',on:true},s.live||{});
+    state.liveByAthlete=s.liveByAthlete||{};
     state.liveActuals=s.liveActuals||{};
     state.liveSplits=s.liveSplits||[];
   }
@@ -657,30 +661,26 @@ function mapToMilestones(splits){
   });
   return out;
 }
-function setLiveStatus(txt,cls){ const el=$('liveStatus'); if(!el)return; el.textContent=txt; el.className='livestatus'+(cls?(' '+cls):''); }
-async function fetchLive(manual){
-  const c=state.live;
-  if(!c.url||!c.event||!c.bib){ setLiveStatus('Bitte Worker-URL, Event und Startnummer angeben.','err'); return; }
-  const key = (/[a-z]/i.test(c.bib) && !/^\d+$/.test(c.bib)) ? 'pid' : 'bib';
-  const u = c.url.replace(/\/$/,'')+`?event=${encodeURIComponent(c.event)}&${key}=${encodeURIComponent(c.bib)}`;
+// Einen Athleten abrufen und im Cache ablegen
+async function fetchOne(key){
+  const a=ATHLETES[key], c=state.live;
+  if(!a||!a.pid||!c.url||!c.event) return;
+  const u=c.url.replace(/\/$/,'')+`?event=${encodeURIComponent(c.event)}&pid=${encodeURIComponent(a.pid)}`;
   try{
-    setLiveStatus('Abruf läuft…');
-    const r=await fetch(u,{cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j=await r.json();
-    if(j&&j.error) throw new Error(j.error);
+    const r=await fetch(u,{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); if(j&&j.error) return;
     const splits=normalizeSplits(j&&j.splits!=null?j.splits:j);
-    state.liveSplits=splits;
-    state.liveActuals=mapToMilestones(splits);
-    await save();
-    const now=new Date();
-    setLiveStatus('Aktualisiert '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' · '+splits.length+' Splits','ok');
-    render();
-  }catch(e){
-    setLiveStatus('Fehler: '+e.message+(manual?'':' · nächster Versuch in 60 s'),'err');
-  }
+    state.liveByAthlete[key]={splits, actuals:mapToMilestones(splits)};
+  }catch(e){}
 }
-function startPoll(){ stopPoll(); if(state.live.on){ fetchLive(false); pollTimer=setInterval(()=>fetchLive(false),60000); } }
+// Immer ALLE Athleten parallel abrufen (mehrere Zuschauer/Personen) + Ansicht aktualisieren
+async function fetchAllLive(){
+  await Promise.all(Object.keys(ATHLETES).map(fetchOne));
+  const cur=state.liveByAthlete[state.athlete]||{actuals:{},splits:[]};
+  state.liveActuals=cur.actuals||{}; state.liveSplits=cur.splits||[];
+  await save(); render();
+}
+function startPoll(){ stopPoll(); if(state.live.on){ fetchAllLive(); pollTimer=setInterval(fetchAllLive,60000); } }
 function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 function esc(t){ return String(t).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
 function renderLive(){
