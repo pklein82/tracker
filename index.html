@@ -87,7 +87,9 @@
     background:var(--surface);transition:background .2s,border-color .2s;cursor:pointer;
   }
   .rung:active{background:var(--surface2)}
-  .rung.target{border-color:var(--swim);box-shadow:0 0 0 1px rgba(43,192,196,.25)}
+  .rung.pending{opacity:.45}
+  .rung.target{border-color:var(--swim);box-shadow:0 0 0 1px rgba(43,192,196,.25);opacity:.85}
+  .rung.done{opacity:1}
   .rhead{display:flex;align-items:center;gap:9px}
   .dot{flex:0 0 auto;width:13px;height:13px;border-radius:50%;border:2px solid var(--muted);background:var(--bg)}
   .rung.swim .dot{border-color:var(--swim)} .rung.bike .dot{border-color:var(--bike)}
@@ -96,7 +98,7 @@
   .rung.run.done .dot{background:var(--run)} .rung.finish.done .dot{background:var(--finish)}
   .rlabel{font-family:'Oswald';font-weight:600;font-size:14px;letter-spacing:.01em;display:flex;align-items:center;gap:7px}
   .rsub{font-size:10.5px;color:var(--muted);margin-left:auto;text-align:right;white-space:nowrap}
-  .src{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--run);font-family:'Oswald'}
+  .src{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ahead);font-family:'Oswald';font-weight:600}
   /* Spalten */
   .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:9px}
   .col{text-align:center;border-radius:9px;padding:6px 3px 6px}
@@ -133,6 +135,7 @@
   .total{font-family:'Oswald';font-weight:600;font-size:14px;color:var(--swim);margin-top:4px}
 
   .foot{font-size:10.5px;color:var(--muted);text-align:center;margin-top:24px;line-height:1.5}
+  .lastrecv{font-family:'Oswald';font-size:11px;color:var(--text);margin-bottom:6px}
 
   /* map */
   #map{height:60vh;min-height:340px;width:100vw;position:relative;left:50%;margin-left:-50vw;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface2);margin-top:4px;z-index:0}
@@ -226,6 +229,7 @@
   <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>Soll (Plan)</b> = Soll + aktueller Vorsprung/Rückstand · <b>Soll (KI)</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie Soll (Plan)). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte: Matten mit zurückgelegter Distanz beschriftet (bei 2 Runden „1. Rd / 2. Rd km"), bereits passierte Punkte rot; der pulsierende Punkt ist die aktuelle Position (Soll KI), der graue die Soll-Position.</div>
 
   <div class="foot">
+    <div id="lastRecv" class="lastrecv">Noch kein Datensatz vom Tracker empfangen.</div>
     Tippe einen Messpunkt für eine manuelle Ist-Zeit an (überschreibt die Live-Zeit).
   </div>
 </div>
@@ -317,6 +321,7 @@ let state = {
   liveSplits:[]    // letzter Roh-Snapshot {label,tod,net} (aktueller Athlet)
 };
 let pollTimer=null;
+let lastLiveTs=null; // Zeitpunkt des letzten erfolgreichen Tracker-Abrufs
 
 // ---- Simulation / Demo ----
 // URL-Parameter:  ?sim=1            Renntag im Zeitraffer (Standard 120×) ab Startzeit
@@ -526,6 +531,11 @@ function render(){
   $('startMeta').textContent=state.start;
   $('finishMeta').textContent=clockFromStart(totalMin());
   $('goalMeta').textContent=minToHM(totalMin());
+  const lr=$('lastRecv'); if(lr){
+    if(SIM) lr.textContent='Simulationsmodus aktiv (keine echten Tracker-Daten).';
+    else if(lastLiveTs){ const t=new Date(lastLiveTs); lr.textContent='Zuletzt vom Tracker empfangen: '+pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds()); }
+    else lr.textContent='Noch kein Datensatz vom Tracker empfangen.';
+  }
 
   const ms=buildMilestones();
   const elapsed=elapsedMin();
@@ -563,12 +573,12 @@ function render(){
       </div>`;
     };
     const div=document.createElement('div');
-    div.className='rung '+x.disc+(reached?' done':'')+(isTarget?' target':'');
+    div.className='rung '+x.disc+(reached?' done':' pending')+(isTarget?' target':'');
     div.dataset.id=x.id;
     div.innerHTML=`
       <div class="rhead">
         <span class="dot"></span>
-        <span class="rlabel">${x.label}${reached&&fromLive?'<span class="src">live</span>':''}</span>
+        <span class="rlabel">${x.label}${reached?'<span class="src">Absolviert</span>':''}</span>
         <span class="rsub">${x.sub}</span>
       </div>
       <div class="cols">
@@ -701,6 +711,7 @@ async function fetchOne(key){
 // Immer ALLE Athleten parallel abrufen (mehrere Zuschauer/Personen) + Ansicht aktualisieren
 async function fetchAllLive(){
   await Promise.all(Object.keys(ATHLETES).map(fetchOne));
+  lastLiveTs=Date.now();
   const cur=state.liveByAthlete[state.athlete]||{actuals:{},splits:[]};
   state.liveActuals=cur.actuals||{}; state.liveSplits=cur.splits||[];
   await save(); render();
