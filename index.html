@@ -150,6 +150,7 @@
   /* permanente Matten-Beschriftung (zurückgelegte Distanz) */
   .leaflet-tooltip.matlbl{background:rgba(10,20,24,.82);color:#EAF4F4;border:none;box-shadow:none;font-family:'Oswald';font-weight:600;font-size:10px;letter-spacing:.02em;padding:1px 5px;border-radius:5px;white-space:nowrap}
   .leaflet-tooltip.matlbl::before{display:none}
+  .leaflet-tooltip.matlbl.matlbl-sel{border:2px solid #FFD23F;color:#FFD23F;background:rgba(10,20,24,.95);font-size:11px}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
     background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 11px;cursor:pointer;user-select:none}
@@ -803,6 +804,8 @@ function updateMapTimes(T){
     if(r.reached){ m.setStyle({fillColor:'#FF3B30',color:'#fff',weight:2,fillOpacity:1}); m.setRadius(p.b?7:5); }
     else { m.setStyle({fillColor:getVar('--'+(SEG2DISC[p.seg]||'bike')),color:'#0A1418',weight:1.5,fillOpacity:.95}); m.setRadius(p.b?6:4); }
     if(p.n===selectedMat){ m.setStyle({color:'#FFD23F',weight:4,fillOpacity:1}); m.setRadius((p.b?7:5)+4); m.bringToFront(); }
+    const tt=m.getTooltip&&m.getTooltip(), tel=tt&&tt.getElement&&tt.getElement();
+    if(tel) tel.classList.toggle('matlbl-sel', p.n===selectedMat); // Beschriftung der gewählten Matte umranden
   });
   // großer pulsierender Halo um die gewählte Matte – deutlich sichtbar
   if(selMarker){ MAP.removeLayer(selMarker); selMarker=null; }
@@ -821,21 +824,29 @@ function subPathCoord(line,iA,iB,f){
   for(let k=0;k<seg.length;k++){ if(acc+seg[k]>=target){ const a=line[idx[k]],b=line[idx[k+1]], ff=seg[k]?(target-acc)/seg[k]:0; return [a[0]+(b[0]-a[0])*ff, a[1]+(b[1]-a[1])*ff]; } acc+=seg[k]; }
   return line[idx[idx.length-1]];
 }
+function legCoord(A,B,col,T,clampF){
+  if(B.seg==='t1'||B.seg==='t2') return B.c;      // Wechselzone: fix auf die Matte
+  const ta=T[A.n][col], tb=T[B.n][col];
+  let f=tb>ta?(now2()-ta)/(tb-ta):0;
+  if(clampF) f=Math.min(1,f);                     // nicht über die nächste Matte hinaus
+  f=Math.max(0,f);
+  const line=ROUTES[ROUTE_DISC[B.seg]]||ROUTES.bike;
+  return subPathCoord(line, nearestIdx(line,A.c), nearestIdx(line,B.c), f)||B.c;
+}
+let _now=0; function now2(){ return _now; }
 function courseCoordAt(col,T){
-  const now=elapsedMin();
+  _now=elapsedMin();
   const pts=RACE_POINTS;
-  if(now<=0) return pts[0].c;
-  for(let i=1;i<pts.length;i++){
-    const A=pts[i-1], B=pts[i], ta=T[A.n][col], tb=T[B.n][col];
-    if(now<=tb){
-      // In der Wechselzone (T1/T2) nicht interpolieren – fix auf die Wechselzonen-Matte
-      if(B.seg==='t1'||B.seg==='t2') return B.c;
-      const f=tb>ta?(now-ta)/(tb-ta):0;
-      const line=ROUTES[ROUTE_DISC[B.seg]]||ROUTES.bike;
-      const c=subPathCoord(line, nearestIdx(line,A.c), nearestIdx(line,B.c), f);
-      return c||B.c;
-    }
+  if(_now<=0) return pts[0].c;
+  // letzter absolvierter Punkt (mit Ist-Zeit)
+  let li=-1; for(let i=0;i<pts.length;i++){ if(istMinOf(pts[i].n)!=null) li=i; }
+  if(li>=0){
+    if(li>=pts.length-1) return pts[li].c;        // alles absolviert
+    // zwischen letzter Matte und nächster – maximal bis zur nächsten (noch nicht durchquert)
+    return legCoord(pts[li], pts[li+1], col, T, true);
   }
+  // noch keine Ist-Daten: entlang der Projektion (wie bisher)
+  for(let i=1;i<pts.length;i++){ if(_now<=T[pts[i].n][col]) return legCoord(pts[i-1], pts[i], col, T, false); }
   return pts[pts.length-1].c;
 }
 let posMarkers={ist:null};
