@@ -9,7 +9,7 @@ Ein leichtgewichtiger Race-Tracker für eine Athletin/einen Athleten beim **IRON
 - **Soll-Zeitplan** aus den geplanten Splits (Schwimmen / T1 / Rad / T2 / Laufen), Start frei einstellbar.
 - **Live-Status**: zeigt, wo die Person laut Plan gerade sein müsste (Disziplin, ~km, Fortschritt).
 - **Zeitmessungspunkte** an den echten Rundenmatten (2 Radrunden ~90 km, 2 Laufrunden ~21,1 km). Tatsächliche Durchgangszeiten per Tap eintragbar; Abweichung zum Plan in +/− Minuten.
-- **Karte** mit der echten Strecke (Leaflet + OpenStreetMap), Disziplinen ein-/ausblendbar, plus GPX-Overlay.
+- **Karte** mit der echten Strecke (Leaflet + OpenStreetMap), Disziplinen ein-/ausblendbar.
 - **Automatischer Abruf (optional)** der offiziellen Splits via RTRT.me über einen kleinen Cloudflare-Worker (CORS-Proxy). Manuelle Eingaben haben immer Vorrang.
 
 ## Struktur
