@@ -7,6 +7,7 @@
  * Aufruf vom Tracker:
  *   https://DEIN-WORKER.workers.dev/?event=IM-AUSTRIA-2026&bib=1234
  *   https://DEIN-WORKER.workers.dev/?event=IM-AUSTRIA-2026&pid=R2KRY3TV   (zuverlässiger)
+ *   https://DEIN-WORKER.workers.dev/?event=IM-AUSTRIA-2025&points=1        (Durchgangspunkte/Matten)
  *
  * Antwort: { "pid": "...", "splits": <RTRT-JSON> }  oder  { "error": "..." }
  *
@@ -32,12 +33,23 @@ export default {
     const event = url.searchParams.get("event");
     const pid = url.searchParams.get("pid");
     const bib = url.searchParams.get("bib");
+    const points = url.searchParams.get("points"); // Point-Definitionen des Events (PID-frei)
 
     if (APPID === "PUT_YOUR_APPID_HERE") return cors(json({ error: "APPID im Worker nicht gesetzt" }, 500));
-    if (!event || (!pid && !bib)) return cors(json({ error: "event und pid oder bib erforderlich" }, 400));
+    if (!event) return cors(json({ error: "event erforderlich" }, 400));
+    if (!points && !pid && !bib) return cors(json({ error: "event und pid oder bib erforderlich (oder points=1)" }, 400));
 
     try {
       const token = await getToken();
+
+      // Offizielle Durchgangspunkte/Matten des Events (z. B. zum Mappen aus dem Vorjahr)
+      if (points) {
+        const ptUrl = `https://api.rtrt.me/events/${enc(event)}/points?appid=${APPID}&token=${token}&max=500`;
+        const pr = await fetch(ptUrl, { cf: { cacheTtl: 0 } });
+        const pj = await pr.json().catch(() => ({}));
+        return cors(json({ event, points: pj }));
+      }
+
       let targetPid = pid;
 
       // Bib -> PID auflösen (best effort; PID direkt ist zuverlässiger)
