@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race Tracker · Patrick · Ironman Austria 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --bg:#0A1418;
+    --bg2:#0E1D24;
+    --surface:#11242D;
+    --surface2:#16303B;
+    --line:#1F3D49;
+    --text:#EAF4F4;
+    --muted:#7C98A1;
+    --swim:#2BC0C4;
+    --bike:#F2A93B;
+    --run:#E8514F;
+    --finish:#FFD23F;
+    --ahead:#37D67A;
+    --behind:#FF6B6B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{padding:0 0 64px}
+  .wrap{max-width:540px;margin:0 auto;padding:0 16px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* HERO */
+  header{
+    background:linear-gradient(180deg,#0E2630 0%,var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+    padding:22px 0 18px;
+  }
+  .eyebrow{font-family:'Oswald';font-weight:500;letter-spacing:.28em;text-transform:uppercase;font-size:11px;color:var(--swim)}
+  h1{font-family:'Oswald';font-weight:700;font-size:34px;line-height:.98;letter-spacing:.01em;margin:4px 0 2px}
+  h1 .who{color:var(--swim)}
+  .meta{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .meta b{color:var(--text);font-weight:600}
+
+  /* LIVE STATUS */
+  .status{
+    margin-top:16px;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    background:var(--surface);
+  }
+  .status .top{display:flex;align-items:baseline;justify-content:space-between;padding:14px 16px 8px}
+  .clock{font-family:'Oswald';font-weight:600;font-size:30px;letter-spacing:.02em}
+  .clock small{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+  .phase{font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px}
+  .statusline{padding:0 16px 14px;font-size:14px;color:var(--text)}
+  .statusline span{color:var(--muted)}
+  .bar{height:6px;background:var(--surface2);border-radius:99px;margin:0 16px 16px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;border-radius:99px;transition:width .6s ease}
+
+  /* SECTION */
+  .sec-title{font-family:'Oswald';text-transform:uppercase;letter-spacing:.2em;font-size:11px;color:var(--muted);margin:26px 2px 12px}
+
+  /* COURSE STRIP */
+  .course{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .leg{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 11px 12px;position:relative;overflow:hidden}
+  .leg::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+  .leg.swim::before{background:var(--swim)} .leg.bike::before{background:var(--bike)} .leg.run::before{background:var(--run)}
+  .leg .ico{font-size:15px}
+  .leg .d{font-family:'Oswald';font-weight:600;font-size:19px;margin-top:3px}
+  .leg .l{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3}
+
+  /* LADDER */
+  .ladder{position:relative;margin-left:6px}
+  .rung{
+    position:relative;display:flex;align-items:center;gap:14px;
+    padding:11px 12px;border-radius:13px;border:1px solid transparent;margin-bottom:7px;
+    background:var(--surface);transition:background .2s,border-color .2s;cursor:pointer;
+  }
+  .rung:active{background:var(--surface2)}
+  .rung.passed{opacity:.62}
+  .rung.target{border-color:var(--line);background:var(--surface2);box-shadow:0 0 0 1px rgba(43,192,196,.15)}
+  .dot{flex:0 0 auto;width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);background:var(--bg);position:relative}
+  .rung.swim .dot{border-color:var(--swim)} .rung.bike .dot{border-color:var(--bike)}
+  .rung.run .dot{border-color:var(--run)} .rung.finish .dot{border-color:var(--finish)}
+  .rung.done .dot{background:currentColor}
+  .rung.swim.done .dot{background:var(--swim)} .rung.bike.done .dot{background:var(--bike)}
+  .rung.run.done .dot{background:var(--run)} .rung.finish.done .dot{background:var(--finish)}
+  .rline{flex:1;min-width:0}
+  .rlabel{font-family:'Oswald';font-weight:600;font-size:15px;letter-spacing:.01em;display:flex;align-items:center;gap:7px}
+  .rsub{font-size:11px;color:var(--muted);margin-top:1px}
+  .tag{font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--line);color:var(--muted);padding:1.5px 5px;border-radius:5px;font-family:'Oswald'}
+  .tag.est{border-color:#2a4450}
+  .rtimes{flex:0 0 auto;text-align:right}
+  .plan{font-family:'Oswald';font-weight:600;font-size:18px;letter-spacing:.02em}
+  .actual{font-size:11px;margin-top:2px;color:var(--muted)}
+  .actual b{font-weight:600}
+  .delta{font-weight:600}
+  .delta.ahead{color:var(--ahead)} .delta.behind{color:var(--behind)}
+
+  /* connecting line */
+  .ladder::before{content:"";position:absolute;left:18px;top:14px;bottom:24px;width:2px;background:var(--line);z-index:0}
+  .rung{z-index:1}
+
+  /* buttons */
+  .btnrow{display:flex;gap:8px;margin-top:14px}
+  button.act{flex:1;font-family:'Oswald';text-transform:uppercase;letter-spacing:.12em;font-size:12px;font-weight:600;
+    background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:11px;padding:12px;cursor:pointer}
+  button.act:active{background:var(--surface2)}
+  button.act.primary{background:var(--swim);color:#04181a;border-color:var(--swim)}
+
+  /* edit panel */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px;display:none}
+  .panel.open{display:block}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;font-family:'Oswald'}
+  .field input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font-size:15px;font-family:'Inter';font-variant-numeric:tabular-nums}
+  .field input:focus{outline:none;border-color:var(--swim)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:11px;color:var(--muted);margin-top:2px}
+  .total{font-family:'Oswald';font-weight:600;font-size:14px;color:var(--swim);margin-top:4px}
+
+  /* tracker link */
+  .tracker{display:flex;gap:8px;margin-top:12px}
+  .tracker input{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 12px;font-size:13px}
+  .tracker a{font-family:'Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:600;display:flex;align-items:center;padding:0 16px;border-radius:10px;background:var(--run);color:#fff;text-decoration:none}
+  .tracker a.off{background:var(--surface);color:var(--muted);border:1px solid var(--line);pointer-events:none}
+
+  .foot{font-size:10.5px;color:var(--muted);text-align:center;margin-top:24px;line-height:1.5}
+
+  /* map */
+  #map{height:300px;border-radius:14px;border:1px solid var(--line);background:var(--surface2);margin-top:2px;z-index:0}
+  .leaflet-container{background:#0c1b22;font-family:'Inter',sans-serif}
+  .maptip{font-family:'Oswald';font-weight:600;font-size:12px}
+  .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
+    background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 11px;cursor:pointer;user-select:none}
+  .chip i{width:10px;height:3px;border-radius:2px;display:inline-block}
+  .chip.off{opacity:.4}
+  .chip.swim i{background:var(--swim)} .chip.bike i{background:var(--bike)} .chip.run i{background:var(--run)} .chip.gpx i{background:#C77DFF}
+  .mapnote{font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.4}
+
+  /* live badge + dot */
+  .livebadge{display:inline-flex;align-items:center;gap:5px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:rgba(232,81,79,.16);color:var(--run)}
+  .livebadge i{width:7px;height:7px;border-radius:50%;background:var(--run);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .rung .src{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--run);font-family:'Oswald';margin-left:6px}
+
+  /* live splits list */
+  .splits{margin-top:10px}
+  .split{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:6px}
+  .split .sname{font-family:'Oswald';font-weight:600;font-size:13px;letter-spacing:.02em}
+  .split .stod{font-family:'Oswald';font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+  .split .snet{font-size:10.5px;color:var(--muted)}
+  .livestatus{font-size:11px;color:var(--muted);margin-top:8px}
+  .livestatus.ok{color:var(--ahead)} .livestatus.err{color:var(--behind)}
+  .toggle{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .toggle input{width:auto}
+  .toggle label{margin:0;text-transform:none;letter-spacing:0;font-family:'Inter';font-size:13px;color:var(--text)}
+
+  /* modal for actual time */
+  .modal{position:fixed;inset:0;background:rgba(4,12,15,.78);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .modal.open{display:flex}
+  .sheet{background:var(--bg2);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;width:100%;max-width:540px;padding:20px 18px calc(20px + env(safe-area-inset-bottom));}
+  .sheet h3{font-family:'Oswald';font-weight:600;font-size:19px;margin-bottom:3px}
+  .sheet p{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .sheet .now-btn{width:100%;font-family:'Oswald';text-transform:uppercase;letter-spacing:.1em;font-size:13px;font-weight:600;background:var(--swim);color:#04181a;border:none;border-radius:11px;padding:13px;margin-bottom:10px;cursor:pointer}
+  .sheet .row{display:flex;gap:8px}
+  .sheet .row button{flex:1;border-radius:11px;padding:12px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--text)}
+  .sheet .row button.clear{color:var(--behind)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Ironman Kärnten · Klagenfurt</div>
+    <h1>Race Tracker<br><span class="who" id="who">Patrick</span></h1>
+    <div class="meta">So. <b>14.06.2026</b> · Start <b id="startMeta">06:35</b> · Ziel-Soll <b id="finishMeta">16:31</b> · Sollzeit <b id="goalMeta">9:56</b></div>
+
+    <div class="status">
+      <div class="top">
+        <div class="clock num" id="clock">--:--<small id="clockSub">jetzt</small></div>
+        <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
+      </div>
+      <div class="statusline" id="statusline">—</div>
+      <div class="bar"><i id="barfill" style="background:var(--swim)"></i></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="sec-title">Strecke</div>
+  <div class="course">
+    <div class="leg swim"><div class="ico">🏊</div><div class="d">3,8 km</div><div class="l">Schwimmen<br>Wörthersee · Strandbad → Lendkanal</div></div>
+    <div class="leg bike"><div class="ico">🚴</div><div class="d">180 km</div><div class="l">Rad · 2 Runden<br>~1.500 hm · Süd­ufer / Velden</div></div>
+    <div class="leg run"><div class="ico">🏃</div><div class="d">42,2 km</div><div class="l">Marathon · 2 Runden<br>Altstadt · Ziel Metnitzstrand</div></div>
+  </div>
+
+  <div class="sec-title">Karte</div>
+  <div id="map"></div>
+  <div class="maplegend">
+    <span class="chip swim" data-layer="swim"><i></i>Schwimmen</span>
+    <span class="chip bike" data-layer="bike"><i></i>Rad</span>
+    <span class="chip run" data-layer="run"><i></i>Laufen</span>
+    <span class="chip gpx" id="gpxBtn"><i></i>GPX laden</span>
+    <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml" style="display:none">
+  </div>
+  <div class="mapnote">Strecke aus den hochgeladenen GPX-Dateien (IM Austria): Schwimmen 3,8 km · Rad 180 km · Laufen 42,2 km. Über „GPX laden" kannst du zusätzlich einen anderen Track überlagern.</div>
+
+  <div class="sec-title">Zeitmessungspunkte · Soll vs. Ist</div>
+  <div class="ladder" id="ladder"></div>
+
+  <div class="btnrow">
+    <button class="act" id="editBtn">Plan bearbeiten</button>
+    <button class="act" id="resetBtn">Ist-Zeiten löschen</button>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="field">
+      <label>Name</label>
+      <input id="f_name" type="text" value="Patrick">
+    </div>
+    <div class="field">
+      <label>Startzeit (HH:MM)</label>
+      <input id="f_start" type="text" inputmode="numeric" value="06:35">
+      <div class="hint">Patricks Start ist 06:35. Bei Rolling Start ggf. seine tatsächliche Startzeit eintragen.</div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Schwimmen (h:mm)</label><input id="f_swim" type="text" inputmode="numeric" value="1:14"></div>
+      <div class="field"><label>Wechsel T1 (min)</label><input id="f_t1" type="text" inputmode="numeric" value="7"></div>
+      <div class="field"><label>Radfahren (h:mm)</label><input id="f_bike" type="text" inputmode="numeric" value="5:00"></div>
+      <div class="field"><label>Wechsel T2 (min)</label><input id="f_t2" type="text" inputmode="numeric" value="5"></div>
+      <div class="field"><label>Laufen (h:mm)</label><input id="f_run" type="text" inputmode="numeric" value="3:30"></div>
+      <div class="field"><label>&nbsp;</label><div class="total" id="sumPreview">Gesamt 9:56</div></div>
+    </div>
+    <div class="btnrow">
+      <button class="act primary" id="saveBtn">Speichern</button>
+      <button class="act" id="cancelBtn">Abbrechen</button>
+    </div>
+  </div>
+
+  <div class="sec-title">Live-Tracker</div>
+  <div class="tracker">
+    <input id="f_tracker" type="text" placeholder="Tracker-Link einfügen (IRONMAN App / track.rtrt.me)">
+    <a id="trackerLink" class="off" target="_blank" rel="noopener">Öffnen</a>
+  </div>
+  <div class="hint" style="margin-top:6px">Zeitmessmatten gemäß Streckenführung: 2 Radrunden (Matte bei ~90 km) und 2 Laufrunden (Matte bei ~21,1 km). Die Soll-Uhrzeiten an den Rundenpunkten sind bei gleichmäßigem Tempo geschätzt; offizielle Zwischenzeiten kommen live aus der IRONMAN-App.</div>
+
+  <div class="sec-title">Automatischer Abruf · RTRT.me <span id="liveBadgeWrap"></span></div>
+  <div class="btnrow" style="margin-top:0">
+    <button class="act" id="liveCfgBtn">Auto-Abruf einrichten</button>
+    <button class="act" id="liveNowBtn">Jetzt abrufen</button>
+  </div>
+  <div class="panel" id="livePanel">
+    <div class="field">
+      <label>Worker-URL (CORS-Proxy)</label>
+      <input id="l_url" type="text" placeholder="https://dein-worker.workers.dev">
+      <div class="hint">Cloudflare-Worker, der RTRT.me abfragt (appid steckt im Worker).</div>
+    </div>
+    <div class="field">
+      <label>Event-Slug</label>
+      <input id="l_event" type="text" placeholder="z. B. IM-AUSTRIA-2026">
+    </div>
+    <div class="field">
+      <label>Startnummer (Bib) oder PID</label>
+      <input id="l_bib" type="text" placeholder="z. B. 1234  oder  PID aus Tracker-URL">
+      <div class="hint">PID ist am zuverlässigsten — steckt in Patricks Tracker-URL.</div>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="l_on">
+      <label for="l_on">Live-Abruf aktiv (alle 60 s)</label>
+    </div>
+    <div class="btnrow">
+      <button class="act primary" id="liveSaveBtn">Speichern</button>
+      <button class="act" id="liveCancelBtn">Abbrechen</button>
+    </div>
+    <div class="livestatus" id="liveStatus">Nicht aktiv.</div>
+  </div>
+
+  <div class="splits" id="splits"></div>
+
+  <div class="foot">
+    Soll-Splits: Schwim&shy;men 1:14 · T1 7′ · Rad 5:00 · T2 5′ · Lauf 3:30.<br>
+    Tippe einen Messpunkt an für die manuelle Eingabe. Manuelle Zeiten haben Vorrang vor dem Live-Abruf.
+  </div>
+</div>
+
+<!-- actual time sheet -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h3 id="sheetTitle">Messpunkt</h3>
+    <p id="sheetSub">Soll-Zeit —</p>
+    <button class="now-btn" id="setNow">Jetzt durch (aktuelle Uhrzeit)</button>
+    <div class="field"><label>oder Uhrzeit eintragen (HH:MM)</label><input id="sheetInput" type="text" inputmode="numeric" placeholder="z. B. 09:42"></div>
+    <div class="row">
+      <button id="sheetClear" class="clear">Löschen</button>
+      <button id="sheetSave" style="background:var(--swim);color:#04181a;border-color:var(--swim)">Eintragen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE_KEY = 'ironman_austria_patrick_v3';
+const RACE_DATE = {y:2026, mo:5, d:14}; // Monat 0-basiert -> Juni = 5
+
+// ---- State ----
+let state = {
+  name:'Patrick',
+  start:'06:35',
+  dur:{swim:74, t1:7, bike:300, t2:5, run:210}, // Minuten
+  actuals:{},      // id -> "HH:MM"  (manuell, hat Vorrang)
+  tracker:'',
+  live:{ url:'', event:'', bib:'', on:false }, // RTRT.me-Abruf
+  liveActuals:{},  // id -> "HH:MM" (automatisch gemappt)
+  liveSplits:[]    // letzter Roh-Snapshot {label,tod,net}
+};
+let pollTimer=null;
+
+// ---- Helpers ----
+const pad = n => String(n).padStart(2,'0');
+function parseHM(str){ // "1:14" oder "74" (min) je nach Kontext - hier h:mm -> min
+  if(str==null) return null;
+  str=String(str).trim();
+  if(str.includes(':')){const[a,b]=str.split(':');return (parseInt(a||0,10)*60)+parseInt(b||0,10);}
+  return parseInt(str||0,10);
+}
+function minToHM(m){ const h=Math.floor(m/60), mm=Math.round(m%60); return h+':'+pad(mm); }
+function startDate(){
+  const [h,m]=state.start.split(':').map(x=>parseInt(x,10));
+  return new Date(RACE_DATE.y, RACE_DATE.mo, RACE_DATE.d, h||0, m||0, 0, 0);
+}
+function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function totalMin(){ const d=state.dur; return d.swim+d.t1+d.bike+d.t2+d.run; }
+
+function buildMilestones(){
+  const d=state.dur, m=[]; let t=0;
+  m.push({id:'start',label:'Schwimmstart',sub:'Strandbad Klagenfurt',disc:'swim',kind:'off',t:0});
+  t+=d.swim; m.push({id:'swim',label:'Schwimmen Ende',sub:'3,8 km · durch Lendkanal',disc:'swim',kind:'off',t});
+  t+=d.t1;   m.push({id:'t1',label:'Rad-Start · T1',sub:'Wechselzone',disc:'bike',kind:'off',t});
+  const bs=t;
+  m.push({id:'b90',label:'Rad Runde 1 · ~90 km',sub:'Rundenmatte · Halbzeit Rad',disc:'bike',kind:'lap',t:bs+d.bike*90/180});
+  t=bs+d.bike; m.push({id:'bike',label:'Rad Ende · 180 km',sub:'Runde 2 · ~1.500 hm',disc:'bike',kind:'off',t});
+  t+=d.t2;   m.push({id:'t2',label:'Lauf-Start · T2',sub:'Wechselzone',disc:'run',kind:'off',t});
+  const rs=t;
+  m.push({id:'r21',label:'Lauf Runde 1 · 21,1 km',sub:'Rundenmatte · Halbmarathon',disc:'run',kind:'lap',t:rs+d.run*21.1/42.2});
+  t=rs+d.run; m.push({id:'finish',label:'ZIEL',sub:'Finish · Metnitzstrand',disc:'finish',kind:'off',t});
+  return m;
+}
+
+// actual "HH:MM" -> minutes from start (handles cross-midnight unlikely here)
+function actualMin(hm){
+  if(!hm) return null;
+  const [h,m]=hm.split(':').map(x=>parseInt(x,10));
+  if(isNaN(h)) return null;
+  const ad=new Date(RACE_DATE.y,RACE_DATE.mo,RACE_DATE.d,h,m||0,0,0);
+  return (ad.getTime()-startDate().getTime())/60000;
+}
+
+// ---- Persistence ----
+async function save(){
+  const data=JSON.stringify(state);
+  try{ if(window.storage&&window.storage.set){ await window.storage.set(STORE_KEY,data); return; } }catch(e){}
+  try{ localStorage.setItem(STORE_KEY,data); }catch(e){}
+}
+async function load(){
+  let s=null;
+  try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(STORE_KEY); if(r&&r.value) s=JSON.parse(r.value); } }catch(e){}
+  if(!s){ try{ const t=localStorage.getItem(STORE_KEY); if(t) s=JSON.parse(t); }catch(e){} }
+  if(s){ state=Object.assign(state,s);
+    state.dur=Object.assign({swim:74,t1:7,bike:300,t2:5,run:210},s.dur||{});
+    state.actuals=s.actuals||{};
+    state.live=Object.assign({url:'',event:'',bib:'',on:false},s.live||{});
+    state.liveActuals=s.liveActuals||{};
+    state.liveSplits=s.liveSplits||[];
+  }
+}
+
+// ---- Render ----
+const $=id=>document.getElementById(id);
+const ICON={swim:'🏊',bike:'🚴',run:'🏃',finish:'🏁'};
+
+function render(){
+  $('who').textContent=state.name||'Athlet';
+  $('startMeta').textContent=state.start;
+  $('finishMeta').textContent=clockFromStart(totalMin());
+  $('goalMeta').textContent=minToHM(totalMin());
+
+  const ms=buildMilestones();
+  const elapsed=(Date.now()-startDate().getTime())/60000;
+  const tot=totalMin();
+
+  // ladder
+  const L=$('ladder'); L.innerHTML='';
+  // find current target = first official-or-any milestone not yet reached (by plan)
+  let targetIdx=ms.findIndex(x=>x.t>elapsed);
+  ms.forEach((x,i)=>{
+    const passed = elapsed>=x.t;
+    const isTarget = i===targetIdx && elapsed>=0 && elapsed<tot;
+    const manual=state.actuals[x.id];
+    const auto=state.liveActuals[x.id];
+    const act=manual||auto;
+    const fromLive=!manual&&!!auto;
+    const div=document.createElement('div');
+    div.className='rung '+x.disc+(passed?' passed':'')+(act?' done':'')+(isTarget?' target':'');
+    div.dataset.id=x.id;
+    let deltaHtml='';
+    if(act){
+      const am=actualMin(act);
+      const dl=Math.round(am-x.t);
+      const cls=dl<=0?'ahead':'behind';
+      const sign=dl<=0?'−':'+';
+      deltaHtml=`<span class="delta ${cls}">${sign}${Math.abs(dl)}′</span>`;
+    }
+    div.innerHTML=`
+      <div class="dot"></div>
+      <div class="rline">
+        <div class="rlabel">${x.label} ${x.kind!=='off'?'<span class="tag est">ca.</span>':''}</div>
+        <div class="rsub">${x.sub}</div>
+      </div>
+      <div class="rtimes">
+        <div class="plan num">${clockFromStart(x.t)}</div>
+        <div class="actual num">${act?('Ist <b>'+act+'</b> '+deltaHtml+(fromLive?'<span class="src">live</span>':'')):'<span style="opacity:.5">eintragen</span>'}</div>
+      </div>`;
+    div.addEventListener('click',()=>openSheet(x));
+    L.appendChild(div);
+  });
+
+  renderStatus(ms,elapsed,tot);
+  renderLive();
+
+  // tracker link
+  const t=state.tracker.trim();
+  const a=$('trackerLink');
+  if(/^https?:\/\//i.test(t)){ a.href=t; a.classList.remove('off'); } else { a.removeAttribute('href'); a.classList.add('off'); }
+}
+
+function renderStatus(ms,elapsed,tot){
+  const phase=$('phase'), line=$('statusline'), fill=$('barfill');
+  const now=new Date();
+  $('clock').firstChild.textContent=pad(now.getHours())+':'+pad(now.getMinutes());
+
+  const COL={swim:'var(--swim)',bike:'var(--bike)',run:'var(--run)',finish:'var(--finish)'};
+  const d=state.dur;
+  const segs=[
+    {n:'Schwimmen',disc:'swim',a:0,b:d.swim},
+    {n:'Wechsel T1',disc:'bike',a:d.swim,b:d.swim+d.t1},
+    {n:'Radfahren',disc:'bike',a:d.swim+d.t1,b:d.swim+d.t1+d.bike},
+    {n:'Wechsel T2',disc:'run',a:d.swim+d.t1+d.bike,b:d.swim+d.t1+d.bike+d.t2},
+    {n:'Laufen',disc:'run',a:d.swim+d.t1+d.bike+d.t2,b:tot},
+  ];
+
+  if(elapsed<0){
+    const mins=Math.ceil(-elapsed);
+    const hh=Math.floor(mins/60);
+    phase.textContent='Vor dem Start'; phase.style.background='#16303B'; phase.style.color='var(--muted)';
+    line.innerHTML=`Start um <b>${state.start}</b> · noch <b>${hh>0?hh+' h ':''}${mins%60} min</b>`;
+    fill.style.width='0%'; fill.style.background='var(--swim)';
+    return;
+  }
+  if(elapsed>=tot){
+    phase.textContent='Im Ziel'; phase.style.background='var(--finish)'; phase.style.color='#04181a';
+    line.innerHTML=`Soll: Patrick ist im Ziel 🏁 · Sollzeit <b>${minToHM(tot)}</b> (${clockFromStart(tot)})`;
+    fill.style.width='100%'; fill.style.background='var(--finish)';
+    return;
+  }
+  const seg=segs.find(s=>elapsed>=s.a&&elapsed<s.b)||segs[0];
+  const segPct=Math.round((elapsed-seg.a)/(seg.b-seg.a)*100);
+  const overallPct=Math.round(elapsed/tot*100);
+  phase.textContent='Soll: '+seg.n; phase.style.background=COL[seg.disc]; phase.style.color='#04181a';
+  // distance estimate within discipline
+  let extra='';
+  if(seg.n==='Schwimmen') extra=` · ~${(3.8*segPct/100).toFixed(1)} km`;
+  else if(seg.n==='Radfahren') extra=` · ~${Math.round(180*segPct/100)} km`;
+  else if(seg.n==='Laufen') extra=` · ~${(42.2*segPct/100).toFixed(1)} km`;
+  line.innerHTML=`Sollte gerade <b>${seg.n.toLowerCase()}</b>${extra} · ${segPct}% des Abschnitts · gesamt ${overallPct}%`;
+  fill.style.width=overallPct+'%'; fill.style.background=COL[seg.disc];
+}
+
+// ---- Sheet (Ist-Zeit eintragen) ----
+let sheetCur=null;
+function openSheet(x){
+  sheetCur=x;
+  $('sheetTitle').textContent=x.label;
+  $('sheetSub').textContent='Soll-Zeit '+clockFromStart(x.t)+(x.kind!=='off'?' (Soll-Schätzung)':'');
+  $('sheetInput').value=state.actuals[x.id]||'';
+  $('modal').classList.add('open');
+}
+function closeSheet(){ $('modal').classList.remove('open'); sheetCur=null; }
+$('setNow').addEventListener('click',()=>{ const n=new Date(); $('sheetInput').value=pad(n.getHours())+':'+pad(n.getMinutes()); });
+$('sheetSave').addEventListener('click',async()=>{
+  if(!sheetCur)return;
+  const v=$('sheetInput').value.trim();
+  if(/^\d{1,2}:\d{2}$/.test(v)) state.actuals[sheetCur.id]=v;
+  else delete state.actuals[sheetCur.id];
+  await save(); closeSheet(); render();
+});
+$('sheetClear').addEventListener('click',async()=>{
+  if(sheetCur){ delete state.actuals[sheetCur.id]; await save(); }
+  closeSheet(); render();
+});
+$('modal').addEventListener('click',e=>{ if(e.target===$('modal')) closeSheet(); });
+
+// ---- Edit panel ----
+function fillForm(){
+  $('f_name').value=state.name;
+  $('f_start').value=state.start;
+  $('f_swim').value=minToHM(state.dur.swim);
+  $('f_t1').value=state.dur.t1;
+  $('f_bike').value=minToHM(state.dur.bike);
+  $('f_t2').value=state.dur.t2;
+  $('f_run').value=minToHM(state.dur.run);
+  updateSum();
+}
+function updateSum(){
+  const s=parseHM($('f_swim').value), t1=parseInt($('f_t1').value||0,10),
+        b=parseHM($('f_bike').value), t2=parseInt($('f_t2').value||0,10), r=parseHM($('f_run').value);
+  $('sumPreview').textContent='Gesamt '+minToHM((s||0)+(t1||0)+(b||0)+(t2||0)+(r||0));
+}
+['f_swim','f_t1','f_bike','f_t2','f_run'].forEach(id=>$(id).addEventListener('input',updateSum));
+$('editBtn').addEventListener('click',()=>{ fillForm(); $('panel').classList.toggle('open'); });
+$('cancelBtn').addEventListener('click',()=>$('panel').classList.remove('open'));
+$('saveBtn').addEventListener('click',async()=>{
+  state.name=$('f_name').value.trim()||'Athlet';
+  let st=$('f_start').value.trim(); if(/^\d{1,2}:\d{2}$/.test(st)) state.start=st;
+  state.dur={
+    swim:parseHM($('f_swim').value)||0,
+    t1:parseInt($('f_t1').value||0,10)||0,
+    bike:parseHM($('f_bike').value)||0,
+    t2:parseInt($('f_t2').value||0,10)||0,
+    run:parseHM($('f_run').value)||0
+  };
+  await save(); $('panel').classList.remove('open'); render();
+});
+$('resetBtn').addEventListener('click',async()=>{
+  state.actuals={}; await save(); render();
+});
+$('f_tracker').addEventListener('input',async e=>{ state.tracker=e.target.value; await save(); render(); });
+
+// ---- Live-Abruf (RTRT.me via Worker) ----
+function toHM(tod){
+  if(tod==null||tod==='') return null;
+  let d=null;
+  if(typeof tod==='number' || /^\d+$/.test(String(tod))){
+    let n=Number(tod); if(n<1e12) n*=1000; d=new Date(n);
+  } else {
+    d=new Date(String(tod).replace(' ','T'));
+    if(isNaN(d)){ const m=String(tod).match(/(\d{1,2}):(\d{2})/); if(m) return pad(+m[1])+':'+m[2]; }
+  }
+  if(d&&!isNaN(d)) return pad(d.getHours())+':'+pad(d.getMinutes());
+  return null;
+}
+function normalizeSplits(raw){
+  let list = Array.isArray(raw)?raw:((raw&&(raw.list||raw.splits||(raw.data&&raw.data.list)))||[]);
+  if(!Array.isArray(list)) list=[];
+  return list.map(s=>{
+    const label = s.name||s.point||s.label||s.location||s.tag||'Split';
+    const tod = toHM(s.tod!=null?s.tod:(s.timeOfDay!=null?s.timeOfDay:(s.tofd!=null?s.tofd:s.time)));
+    const net = s.netTime||s.nettime||s.time||s.duration||'';
+    return {label:String(label), tod, net:String(net||'')};
+  }).filter(x=>x.tod||x.net);
+}
+function mapToMilestones(splits){
+  const out={}, bike=[], run=[];
+  splits.forEach(s=>{
+    if(!s.tod) return;
+    const L=s.label.toUpperCase();
+    if(L.includes('FINISH')||L.includes('ZIEL')) out.finish=s.tod;
+    else if(L.includes('T1')||(L.includes('TRANS')&&L.includes('1'))) out.t1=s.tod;
+    else if(L.includes('T2')||(L.includes('TRANS')&&L.includes('2'))) out.t2=s.tod;
+    else if(L.includes('SWIM')||L.includes('SCHWIMM')) out.swim=s.tod;
+    else if(L.includes('BIKE')||L.includes('RAD')) bike.push(s);
+    else if(L.includes('RUN')||L.includes('LAUF')) run.push(s);
+  });
+  if(bike.length){ out.b90=bike[0].tod; out.bike=bike[bike.length-1].tod; }
+  if(run.length){ out.r21=run[0].tod; }
+  return out;
+}
+function setLiveStatus(txt,cls){ const el=$('liveStatus'); if(!el)return; el.textContent=txt; el.className='livestatus'+(cls?(' '+cls):''); }
+async function fetchLive(manual){
+  const c=state.live;
+  if(!c.url||!c.event||!c.bib){ setLiveStatus('Bitte Worker-URL, Event und Startnummer angeben.','err'); return; }
+  const key = (/[a-z]/i.test(c.bib) && !/^\d+$/.test(c.bib)) ? 'pid' : 'bib';
+  const u = c.url.replace(/\/$/,'')+`?event=${encodeURIComponent(c.event)}&${key}=${encodeURIComponent(c.bib)}`;
+  try{
+    setLiveStatus('Abruf läuft…');
+    const r=await fetch(u,{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    if(j&&j.error) throw new Error(j.error);
+    const splits=normalizeSplits(j&&j.splits!=null?j.splits:j);
+    state.liveSplits=splits;
+    state.liveActuals=mapToMilestones(splits);
+    await save();
+    const now=new Date();
+    setLiveStatus('Aktualisiert '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' · '+splits.length+' Splits','ok');
+    render();
+  }catch(e){
+    setLiveStatus('Fehler: '+e.message+(manual?'':' · nächster Versuch in 60 s'),'err');
+  }
+}
+function startPoll(){ stopPoll(); if(state.live.on){ fetchLive(false); pollTimer=setInterval(()=>fetchLive(false),60000); } }
+function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+function esc(t){ return String(t).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function renderLive(){
+  const bw=$('liveBadgeWrap'); if(bw) bw.innerHTML = state.live.on ? '<span class="livebadge"><i></i>Live</span>' : '';
+  const box=$('splits'); if(!box) return;
+  if(!state.liveSplits||!state.liveSplits.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="sec-title" style="margin-top:18px">Live-Splits · RTRT.me</div>'+
+    state.liveSplits.map(s=>`<div class="split"><div><div class="sname">${esc(s.label)}</div>${s.net?('<div class="snet">Netto '+esc(s.net)+'</div>'):''}</div><div class="stod num">${s.tod||'—'}</div></div>`).join('');
+}
+$('liveCfgBtn').addEventListener('click',()=>{
+  $('l_url').value=state.live.url; $('l_event').value=state.live.event;
+  $('l_bib').value=state.live.bib; $('l_on').checked=!!state.live.on;
+  $('livePanel').classList.toggle('open');
+});
+$('liveCancelBtn').addEventListener('click',()=>$('livePanel').classList.remove('open'));
+$('liveSaveBtn').addEventListener('click',async()=>{
+  state.live={ url:$('l_url').value.trim(), event:$('l_event').value.trim(), bib:$('l_bib').value.trim(), on:$('l_on').checked };
+  await save(); $('livePanel').classList.remove('open'); startPoll(); render();
+});
+$('liveNowBtn').addEventListener('click',()=>fetchLive(true));
+
+// ---- Karte ----
+let MAP=null, layers={}, gpxLayer=null;
+const ROUTES={swim:[[46.6198,14.2542],[46.6186,14.2361],[46.6141,14.2367],[46.6147,14.2501],[46.615,14.2525],[46.6156,14.254],[46.6178,14.2586],[46.6181,14.2595],[46.6181,14.2601],[46.618,14.2604],[46.6178,14.2603]],bike:[[46.6156,14.2614],[46.6136,14.2611],[46.6117,14.2605],[46.6113,14.2605],[46.6109,14.2606],[46.6106,14.2601],[46.6096,14.2596],[46.6086,14.2588],[46.6069,14.2563],[46.6067,14.2558],[46.6065,14.2549],[46.6065,14.2538],[46.6072,14.2518],[46.608,14.2503],[46.6089,14.2487],[46.6094,14.2476],[46.6099,14.2462],[46.6112,14.2427],[46.6115,14.2423],[46.6122,14.2417],[46.6128,14.2399],[46.6125,14.2384],[46.6128,14.2371],[46.6127,14.2365],[46.6125,14.2351],[46.6121,14.2336],[46.6112,14.2317],[46.6112,14.2302],[46.611,14.2293],[46.6107,14.2288],[46.6106,14.2267],[46.6103,14.2257],[46.6101,14.2241],[46.6096,14.2226],[46.6095,14.2219],[46.6095,14.2198],[46.6092,14.2182],[46.6091,14.2162],[46.6092,14.2157],[46.6097,14.2141],[46.6097,14.213],[46.6102,14.2111],[46.6101,14.2082],[46.6097,14.2067],[46.6092,14.2058],[46.6093,14.2042],[46.6091,14.203],[46.6091,14.2021],[46.6094,14.1988],[46.6088,14.1967],[46.6083,14.1942],[46.6073,14.1906],[46.6071,14.1892],[46.6063,14.1867],[46.6061,14.1852],[46.6061,14.1845],[46.6073,14.1802],[46.6078,14.1794],[46.6082,14.1791],[46.6085,14.179],[46.6089,14.179],[46.6099,14.1797],[46.6106,14.18],[46.6109,14.1799],[46.6111,14.1796],[46.6112,14.1777],[46.6114,14.177],[46.6119,14.1762],[46.612,14.1751],[46.6118,14.1744],[46.6122,14.1731],[46.6125,14.1698],[46.6128,14.1687],[46.6134,14.1679],[46.6136,14.1672],[46.6136,14.1651],[46.6139,14.1634],[46.6143,14.1623],[46.615,14.1611],[46.6153,14.1597],[46.6158,14.159],[46.6164,14.1576],[46.6164,14.1567],[46.6165,14.1564],[46.6173,14.1559],[46.6176,14.1558],[46.6178,14.1555],[46.618,14.1544],[46.6181,14.1535],[46.6185,14.1527],[46.6186,14.1506],[46.6185,14.1494],[46.6183,14.1482],[46.6184,14.1473],[46.6186,14.1469],[46.6189,14.1464],[46.6193,14.1462],[46.6201,14.1461],[46.621,14.1453],[46.6211,14.1449],[46.6212,14.1442],[46.6215,14.1435],[46.6216,14.143],[46.6215,14.1419],[46.6215,14.14],[46.621,14.1378],[46.6212,14.132],[46.6213,14.1312],[46.6218,14.1298],[46.6222,14.128],[46.6227,14.1268],[46.6231,14.1248],[46.6239,14.123],[46.624,14.1222],[46.6236,14.1199],[46.6228,14.1176],[46.6222,14.1144],[46.6213,14.1103],[46.6209,14.1077],[46.6203,14.1059],[46.6194,14.1023],[46.6189,14.1006],[46.6181,14.0985],[46.6179,14.0978],[46.6175,14.0956],[46.6176,14.0943],[46.6174,14.0929],[46.6166,14.0915],[46.6165,14.0905],[46.6157,14.0894],[46.6154,14.0879],[46.6152,14.0874],[46.6144,14.0865],[46.6136,14.0851],[46.6123,14.0837],[46.612,14.0828],[46.6118,14.081],[46.6112,14.0784],[46.6111,14.0762],[46.6107,14.0753],[46.6103,14.0745],[46.6101,14.074],[46.6101,14.0722],[46.61,14.0686],[46.6099,14.0648],[46.6098,14.0641],[46.6094,14.0625],[46.6089,14.0621],[46.6086,14.0616],[46.6084,14.06],[46.6082,14.0592],[46.6078,14.0582],[46.6076,14.0574],[46.6078,14.0547],[46.6076,14.052],[46.6077,14.0497],[46.6076,14.0486],[46.6073,14.0472],[46.6064,14.0441],[46.6061,14.0429],[46.606,14.0413],[46.606,14.039],[46.6058,14.0382],[46.6058,14.0379],[46.6055,14.0376],[46.6051,14.0371],[46.6048,14.0366],[46.6048,14.0359],[46.6045,14.0356],[46.6037,14.0325],[46.6033,14.0302],[46.6028,14.028],[46.6022,14.0241],[46.6018,14.0206],[46.6013,14.0185],[46.6007,14.0175],[46.5999,14.017],[46.599,14.0167],[46.5982,14.0168],[46.5975,14.0171],[46.5969,14.0175],[46.5956,14.019],[46.5947,14.0198],[46.5939,14.0201],[46.593,14.0202],[46.5923,14.0201],[46.5918,14.0198],[46.5895,14.0179],[46.589,14.0177],[46.5874,14.0175],[46.5872,14.0172],[46.5872,14.0159],[46.5873,14.0151],[46.5884,14.0119],[46.5885,14.011],[46.5877,14.0082],[46.5868,14.0058],[46.5865,14.0044],[46.5865,14.0034],[46.5868,13.9989],[46.5868,13.9983],[46.5866,13.9972],[46.5862,13.9962],[46.5849,13.9941],[46.5844,13.9918],[46.5835,13.9895],[46.5834,13.9887],[46.5835,13.988],[46.5838,13.9873],[46.5846,13.9866],[46.5849,13.9862],[46.5855,13.9848],[46.5875,13.9817],[46.5888,13.9792],[46.5893,13.9787],[46.5899,13.9786],[46.5906,13.979],[46.591,13.9791],[46.5914,13.9787],[46.5915,13.9783],[46.5916,13.9764],[46.592,13.9744],[46.592,13.9736],[46.5919,13.9728],[46.5913,13.969],[46.591,13.9658],[46.5911,13.9637],[46.5914,13.9595],[46.5916,13.9574],[46.5919,13.956],[46.5946,13.9471],[46.5959,13.948],[46.5964,13.9486],[46.5987,13.9542],[46.5992,13.955],[46.5999,13.9559],[46.6013,13.9572],[46.6016,13.9577],[46.6018,13.9583],[46.6017,13.9602],[46.6018,13.9583],[46.6015,13.9575],[46.6012,13.957],[46.5999,13.9559],[46.5992,13.955],[46.5987,13.9542],[46.5969,13.9497],[46.5962,13.9484],[46.5956,13.9477],[46.5946,13.9471],[46.5958,13.9441],[46.5965,13.9416],[46.5964,13.9414],[46.5952,13.9408],[46.5943,13.9401],[46.5932,13.9389],[46.5926,13.9378],[46.5918,13.935],[46.5913,13.9341],[46.5907,13.9337],[46.5887,13.9333],[46.5888,13.9331],[46.5885,13.9337],[46.5876,13.9347],[46.5871,13.9352],[46.5868,13.9352],[46.5866,13.9351],[46.5861,13.934],[46.5851,13.9336],[46.5837,13.9332],[46.5822,13.9337],[46.5814,13.9348],[46.5801,13.9357],[46.5795,13.9359],[46.5779,13.9361],[46.5767,13.9368],[46.5768,13.9367],[46.5772,13.9391],[46.5772,13.9405],[46.5754,13.9482],[46.5745,13.9512],[46.5737,13.9537],[46.573,13.9547],[46.5712,13.9561],[46.5703,13.9573],[46.5678,13.9631],[46.5679,13.9632],[46.5679,13.9636],[46.5677,13.9642],[46.5665,13.9657],[46.565,13.968],[46.5626,13.9712],[46.5624,13.9718],[46.5622,13.9727],[46.5617,13.9743],[46.5607,13.9761],[46.5603,13.9766],[46.5584,13.9783],[46.5542,13.9812],[46.554,13.9847],[46.5537,13.9868],[46.5534,13.9886],[46.553,13.9902],[46.5513,13.9952],[46.5504,13.9989],[46.5496,14.0011],[46.5493,14.0028],[46.549,14.0082],[46.5491,14.0091],[46.5493,14.0103],[46.5499,14.0116],[46.5526,14.0149],[46.5537,14.0165],[46.5543,14.0182],[46.5547,14.0197],[46.5553,14.0235],[46.5556,14.0264],[46.5555,14.0283],[46.5552,14.0297],[46.5543,14.0334],[46.5542,14.0353],[46.5544,14.037],[46.5549,14.0397],[46.5547,14.0414],[46.5548,14.0417],[46.5554,14.0424],[46.556,14.0419],[46.5575,14.041],[46.5595,14.0407],[46.5603,14.0405],[46.5609,14.0402],[46.5624,14.0388],[46.5633,14.0374],[46.5639,14.0361],[46.5649,14.0313],[46.5654,14.0288],[46.5658,14.0275],[46.5663,14.0267],[46.5669,14.0261],[46.5697,14.0241],[46.5709,14.0227],[46.5735,14.021],[46.5738,14.0209],[46.5744,14.021],[46.5757,14.022],[46.5767,14.0225],[46.5774,14.0226],[46.5784,14.0224],[46.5798,14.0218],[46.5817,14.0204],[46.5823,14.0201],[46.583,14.0201],[46.585,14.0206],[46.5856,14.0204],[46.5859,14.0199],[46.587,14.0176],[46.5872,14.0173],[46.5874,14.0175],[46.589,14.0177],[46.5895,14.0179],[46.5918,14.0198],[46.5923,14.0201],[46.593,14.0202],[46.5939,14.0201],[46.5947,14.0198],[46.5956,14.019],[46.5969,14.0175],[46.5973,14.0172],[46.5982,14.0168],[46.599,14.0167],[46.5999,14.017],[46.6007,14.0175],[46.6011,14.018],[46.6013,14.0185],[46.6018,14.0206],[46.6022,14.0241],[46.6028,14.028],[46.6033,14.0302],[46.6037,14.0325],[46.6045,14.0359],[46.6045,14.0361],[46.6042,14.0363],[46.6032,14.0369],[46.6026,14.0377],[46.6023,14.0389],[46.6021,14.04],[46.602,14.0412],[46.6018,14.0431],[46.6019,14.0452],[46.602,14.0488],[46.6022,14.0502],[46.6028,14.0531],[46.6035,14.0546],[46.6037,14.0558],[46.6037,14.0564],[46.6031,14.0572],[46.603,14.0576],[46.603,14.0604],[46.6029,14.0609],[46.6028,14.0611],[46.6022,14.0615],[46.6014,14.0616],[46.6012,14.0618],[46.6004,14.063],[46.5998,14.0634],[46.5995,14.0635],[46.5989,14.0631],[46.5988,14.0633],[46.5988,14.0639],[46.5987,14.0652],[46.5988,14.0658],[46.5991,14.0669],[46.5993,14.07],[46.6004,14.0751],[46.6007,14.0766],[46.601,14.0824],[46.6011,14.0837],[46.6014,14.0848],[46.6024,14.0882],[46.6035,14.093],[46.6035,14.0946],[46.6029,14.0957],[46.602,14.0947],[46.6006,14.0945],[46.6003,14.0943],[46.5989,14.093],[46.5971,14.0909],[46.5953,14.0898],[46.5945,14.0883],[46.5921,14.0852],[46.5915,14.0845],[46.5906,14.0836],[46.5889,14.0825],[46.5878,14.0814],[46.5875,14.0815],[46.5862,14.0824],[46.5856,14.0825],[46.5849,14.0823],[46.5838,14.0815],[46.5829,14.0813],[46.5823,14.0808],[46.5818,14.0801],[46.5815,14.0793],[46.5811,14.0775],[46.581,14.0739],[46.5805,14.0725],[46.58,14.0716],[46.5796,14.0701],[46.579,14.0685],[46.5786,14.0671],[46.5783,14.0667],[46.5778,14.0665],[46.577,14.0664],[46.5763,14.0668],[46.5759,14.0667],[46.5754,14.068],[46.5749,14.0688],[46.5745,14.0696],[46.5736,14.0728],[46.5732,14.075],[46.5728,14.0759],[46.5716,14.0776],[46.5709,14.0799],[46.5706,14.0803],[46.5702,14.0806],[46.5697,14.0806],[46.5684,14.0803],[46.5676,14.0802],[46.5651,14.0813],[46.5641,14.0821],[46.5626,14.0854],[46.5621,14.0865],[46.5618,14.0879],[46.5605,14.0899],[46.5601,14.0908],[46.5598,14.0921],[46.5596,14.0936],[46.5594,14.0939],[46.5587,14.0946],[46.5583,14.0953],[46.5577,14.097],[46.5571,14.0984],[46.5568,14.0998],[46.5566,14.1036],[46.5563,14.1047],[46.5561,14.1053],[46.5556,14.1058],[46.554,14.1071],[46.5534,14.1078],[46.5525,14.1093],[46.5516,14.1104],[46.5511,14.1115],[46.5505,14.1126],[46.5494,14.1138],[46.5485,14.1145],[46.548,14.115],[46.5473,14.1164],[46.5465,14.1174],[46.5461,14.118],[46.5456,14.1199],[46.5453,14.1207],[46.5435,14.1232],[46.5433,14.1239],[46.5429,14.1265],[46.5423,14.1287],[46.5421,14.1304],[46.5416,14.1331],[46.5415,14.1343],[46.541,14.136],[46.541,14.1393],[46.5409,14.1409],[46.5411,14.1415],[46.5416,14.1422],[46.5418,14.1427],[46.5424,14.1456],[46.5429,14.1465],[46.5431,14.1467],[46.5433,14.1467],[46.544,14.1461],[46.5443,14.1461],[46.5447,14.1466],[46.5451,14.1478],[46.5459,14.1484],[46.5462,14.149],[46.5467,14.1494],[46.5468,14.1497],[46.5468,14.15],[46.5463,14.1509],[46.5463,14.1519],[46.5464,14.153],[46.5464,14.1535],[46.5458,14.1556],[46.5456,14.1567],[46.5448,14.1584],[46.5457,14.1617],[46.5456,14.1636],[46.5457,14.1645],[46.547,14.1684],[46.5472,14.17],[46.5468,14.1737],[46.5468,14.1752],[46.547,14.1764],[46.5475,14.1795],[46.5483,14.1812],[46.5485,14.183],[46.5489,14.1844],[46.5488,14.1858],[46.5489,14.187],[46.5492,14.1923],[46.549,14.1927],[46.5481,14.1929],[46.5479,14.1932],[46.5479,14.1936],[46.5482,14.1957],[46.5483,14.1989],[46.5485,14.1996],[46.5502,14.2042],[46.5515,14.2066],[46.5517,14.2087],[46.5516,14.2106],[46.5517,14.2121],[46.5519,14.2124],[46.5526,14.2128],[46.5532,14.2137],[46.5538,14.2152],[46.5538,14.2158],[46.5538,14.2183],[46.554,14.2192],[46.5544,14.2206],[46.5547,14.2231],[46.5554,14.2245],[46.5558,14.2263],[46.556,14.2266],[46.5573,14.2279],[46.5575,14.2284],[46.558,14.2298],[46.5585,14.2305],[46.5589,14.2315],[46.5593,14.2317],[46.5602,14.2317],[46.561,14.2322],[46.5617,14.2364],[46.5619,14.2375],[46.5625,14.2418],[46.5629,14.2434],[46.5632,14.2441],[46.5661,14.2488],[46.5675,14.2504],[46.5695,14.2523],[46.5699,14.2529],[46.5702,14.2537],[46.5706,14.2556],[46.5709,14.2563],[46.5718,14.2573],[46.5728,14.2598],[46.5729,14.2606],[46.5728,14.2616],[46.5722,14.2633],[46.5721,14.2643],[46.573,14.27],[46.5734,14.2718],[46.5745,14.2737],[46.5756,14.2753],[46.5769,14.277],[46.5785,14.2788],[46.5793,14.2802],[46.5807,14.2817],[46.5808,14.282],[46.5808,14.2825],[46.5826,14.2828],[46.5841,14.2826],[46.5847,14.2829],[46.5909,14.2882],[46.5959,14.2933],[46.5972,14.2944],[46.5992,14.2955],[46.6012,14.2969],[46.6039,14.2974],[46.6072,14.2988],[46.6076,14.2965],[46.6077,14.2948],[46.6075,14.2928],[46.6068,14.2896],[46.6067,14.2883],[46.6066,14.2866],[46.6067,14.2846],[46.607,14.2821],[46.6075,14.2796],[46.6085,14.2756],[46.6086,14.2744],[46.6087,14.2727],[46.608,14.2694],[46.6078,14.2679],[46.6078,14.2661],[46.6081,14.2649],[46.6088,14.2633],[46.6104,14.2611],[46.611,14.2605],[46.6117,14.2605],[46.613,14.261],[46.6145,14.2613],[46.6171,14.2616],[46.6145,14.2613],[46.6115,14.2605],[46.6109,14.2606],[46.6107,14.2602],[46.6096,14.2596],[46.6085,14.2587],[46.6069,14.2563],[46.6065,14.2552],[46.6064,14.2544],[46.6065,14.2538],[46.6072,14.2518],[46.6092,14.2481],[46.6104,14.2445],[46.6112,14.2426],[46.6114,14.2423],[46.612,14.2419],[46.6122,14.2416],[46.6125,14.2406],[46.6121,14.2417],[46.6114,14.2423],[46.6112,14.2426],[46.6105,14.2445],[46.6114,14.2425],[46.6122,14.2417],[46.6128,14.2399],[46.6125,14.2384],[46.6128,14.2371],[46.6127,14.2365],[46.6125,14.2351],[46.6121,14.2336],[46.6112,14.2317],[46.6112,14.2302],[46.611,14.2293],[46.6107,14.2288],[46.6106,14.2267],[46.6103,14.2257],[46.6101,14.2241],[46.6096,14.2226],[46.6095,14.2219],[46.6095,14.2198],[46.6092,14.2182],[46.6091,14.2162],[46.6092,14.2157],[46.6097,14.2141],[46.6097,14.2128],[46.6102,14.2113],[46.6101,14.2082],[46.6097,14.2067],[46.6092,14.2058],[46.6093,14.2042],[46.6091,14.203],[46.6091,14.2021],[46.6094,14.1988],[46.6088,14.1967],[46.6083,14.1942],[46.6073,14.1906],[46.6071,14.1892],[46.6063,14.1867],[46.6061,14.1852],[46.6061,14.1845],[46.6073,14.1802],[46.6076,14.1796],[46.6074,14.1799],[46.6078,14.1792],[46.6084,14.1789],[46.6089,14.179],[46.6106,14.18],[46.6109,14.1799],[46.6111,14.1796],[46.6112,14.1777],[46.6114,14.177],[46.6119,14.1762],[46.612,14.1751],[46.6118,14.1744],[46.6122,14.1731],[46.6125,14.1698],[46.6128,14.1687],[46.6134,14.1679],[46.6136,14.1672],[46.6136,14.1651],[46.6139,14.1634],[46.6143,14.1623],[46.615,14.1611],[46.6153,14.1597],[46.6158,14.159],[46.6164,14.1576],[46.6164,14.1567],[46.6165,14.1564],[46.6173,14.1559],[46.6176,14.1558],[46.6178,14.1555],[46.618,14.1544],[46.6181,14.1535],[46.6185,14.1527],[46.6186,14.1506],[46.6185,14.1494],[46.6183,14.1482],[46.6184,14.1473],[46.6186,14.1469],[46.6189,14.1464],[46.6193,14.1462],[46.6201,14.1461],[46.621,14.1453],[46.6211,14.1449],[46.6212,14.1442],[46.6216,14.1433],[46.6215,14.1419],[46.6215,14.14],[46.621,14.1378],[46.6212,14.132],[46.6213,14.1312],[46.6218,14.1298],[46.6222,14.128],[46.6227,14.1268],[46.6231,14.1248],[46.6238,14.1234],[46.624,14.1225],[46.6237,14.1207],[46.6233,14.1191],[46.6228,14.1176],[46.6222,14.1144],[46.6213,14.1103],[46.6209,14.1077],[46.6203,14.1059],[46.6194,14.1023],[46.6189,14.1006],[46.6181,14.0985],[46.6179,14.0978],[46.6175,14.0956],[46.6176,14.0943],[46.6174,14.0929],[46.6166,14.0915],[46.6165,14.0905],[46.6157,14.0894],[46.6154,14.0879],[46.6152,14.0874],[46.6144,14.0865],[46.6136,14.0851],[46.6124,14.0839],[46.6122,14.0836],[46.612,14.0828],[46.6118,14.081],[46.6113,14.0789],[46.6111,14.0762],[46.6107,14.0753],[46.6103,14.0745],[46.6101,14.074],[46.6101,14.0722],[46.6099,14.0643],[46.6094,14.0625],[46.6089,14.0621],[46.6086,14.0616],[46.6082,14.0592],[46.6076,14.0575],[46.6078,14.0543],[46.6076,14.0525],[46.6077,14.0497],[46.6076,14.0486],[46.6073,14.0472],[46.6064,14.0441],[46.6061,14.0429],[46.606,14.0413],[46.606,14.039],[46.6058,14.0382],[46.6058,14.0379],[46.6055,14.0376],[46.6051,14.0371],[46.6048,14.0366],[46.6048,14.0359],[46.6045,14.0356],[46.6037,14.0325],[46.6033,14.0302],[46.6028,14.028],[46.6022,14.0241],[46.6018,14.0206],[46.6013,14.0185],[46.6007,14.0175],[46.5999,14.017],[46.599,14.0167],[46.5982,14.0168],[46.5973,14.0172],[46.5969,14.0175],[46.5956,14.019],[46.5947,14.0198],[46.5939,14.0201],[46.593,14.0202],[46.5923,14.0201],[46.5918,14.0198],[46.5895,14.0179],[46.589,14.0177],[46.5874,14.0175],[46.5872,14.0172],[46.5873,14.0152],[46.5884,14.0119],[46.5885,14.011],[46.5877,14.0082],[46.5868,14.0058],[46.5865,14.0044],[46.5865,14.0034],[46.5868,13.9989],[46.5868,13.9983],[46.5866,13.9972],[46.5862,13.9962],[46.5849,13.9941],[46.5844,13.9918],[46.5835,13.9895],[46.5834,13.9887],[46.5835,13.988],[46.5838,13.9873],[46.5846,13.9866],[46.5849,13.9862],[46.5855,13.9848],[46.5875,13.9817],[46.5888,13.9792],[46.5893,13.9787],[46.5899,13.9786],[46.5906,13.979],[46.591,13.9791],[46.5914,13.9787],[46.5915,13.9783],[46.5916,13.9764],[46.592,13.9744],[46.592,13.9736],[46.5919,13.9728],[46.5913,13.969],[46.591,13.9658],[46.5911,13.9637],[46.5914,13.9595],[46.5916,13.9574],[46.5919,13.956],[46.5946,13.9471],[46.5956,13.9477],[46.5962,13.9484],[46.5969,13.9497],[46.5987,13.9542],[46.5992,13.955],[46.5999,13.9559],[46.6012,13.957],[46.6015,13.9575],[46.6018,13.9583],[46.6017,13.9602],[46.6018,13.9583],[46.6015,13.9575],[46.6012,13.957],[46.5999,13.9559],[46.5992,13.955],[46.5987,13.9542],[46.5969,13.9497],[46.5962,13.9484],[46.5956,13.9477],[46.5946,13.9471],[46.5958,13.9441],[46.5965,13.9416],[46.5964,13.9414],[46.5946,13.9404],[46.5936,13.9394],[46.5932,13.9389],[46.5926,13.9378],[46.5916,13.9346],[46.5909,13.9338],[46.5904,13.9336],[46.5887,13.9333],[46.5883,13.9339],[46.5872,13.9351],[46.5869,13.9353],[46.5866,13.9351],[46.5863,13.9343],[46.5859,13.9339],[46.5851,13.9336],[46.5837,13.9332],[46.5822,13.9337],[46.5814,13.9348],[46.5801,13.9357],[46.5795,13.9359],[46.5779,13.9361],[46.5768,13.9367],[46.5772,13.9391],[46.5772,13.9405],[46.5754,13.9482],[46.5745,13.9512],[46.5737,13.9537],[46.573,13.9547],[46.5712,13.9561],[46.5703,13.9573],[46.5678,13.9631],[46.5679,13.9632],[46.5679,13.9636],[46.5677,13.9642],[46.5665,13.9657],[46.565,13.968],[46.5626,13.9712],[46.5624,13.9717],[46.5621,13.9729],[46.5617,13.9743],[46.5608,13.9759],[46.5603,13.9766],[46.5584,13.9783],[46.5542,13.9812],[46.5538,13.9858],[46.5534,13.9886],[46.553,13.9902],[46.5513,13.9952],[46.5508,13.9975],[46.5496,14.0011],[46.5493,14.0028],[46.549,14.0087],[46.5493,14.0103],[46.5499,14.0116],[46.5526,14.0149],[46.5537,14.0165],[46.5543,14.0182],[46.5547,14.0197],[46.5553,14.0235],[46.5556,14.0264],[46.5555,14.0283],[46.5552,14.0297],[46.5543,14.0334],[46.5542,14.0353],[46.5544,14.037],[46.5549,14.0397],[46.5547,14.0414],[46.5548,14.0417],[46.5554,14.0424],[46.556,14.0419],[46.5575,14.041],[46.5595,14.0407],[46.5603,14.0405],[46.5609,14.0402],[46.5624,14.0388],[46.5633,14.0374],[46.5639,14.0361],[46.5649,14.0313],[46.5654,14.0288],[46.5658,14.0275],[46.5663,14.0267],[46.5669,14.0261],[46.5697,14.0241],[46.5709,14.0227],[46.5735,14.021],[46.5738,14.0209],[46.5744,14.021],[46.5757,14.022],[46.5767,14.0225],[46.5774,14.0226],[46.5784,14.0224],[46.5798,14.0218],[46.5817,14.0204],[46.5823,14.0201],[46.583,14.0201],[46.585,14.0206],[46.5856,14.0204],[46.5859,14.0199],[46.587,14.0176],[46.5872,14.0173],[46.5874,14.0175],[46.589,14.0177],[46.5895,14.0179],[46.5918,14.0198],[46.5923,14.0201],[46.593,14.0202],[46.5939,14.0201],[46.5947,14.0198],[46.5956,14.019],[46.5969,14.0175],[46.5975,14.0171],[46.5982,14.0168],[46.599,14.0167],[46.5999,14.017],[46.6007,14.0175],[46.6011,14.018],[46.6013,14.0185],[46.6018,14.0206],[46.6022,14.0241],[46.6028,14.028],[46.6033,14.0302],[46.6037,14.0325],[46.6045,14.0359],[46.6045,14.0361],[46.6042,14.0363],[46.6032,14.0369],[46.6026,14.0377],[46.6023,14.0388],[46.6021,14.04],[46.602,14.0412],[46.6018,14.0431],[46.6019,14.0452],[46.602,14.0488],[46.6022,14.0502],[46.6028,14.0531],[46.6035,14.0546],[46.6037,14.0558],[46.6037,14.0564],[46.6031,14.0572],[46.603,14.0576],[46.603,14.0604],[46.6029,14.0609],[46.6028,14.0611],[46.6022,14.0615],[46.6014,14.0616],[46.6012,14.0618],[46.6004,14.063],[46.5998,14.0634],[46.5995,14.0635],[46.5989,14.0631],[46.5988,14.0633],[46.5988,14.0639],[46.5987,14.0652],[46.5988,14.0658],[46.5991,14.0669],[46.5993,14.07],[46.6004,14.0751],[46.6007,14.0766],[46.601,14.0824],[46.6011,14.0837],[46.6014,14.0848],[46.6024,14.0882],[46.6035,14.093],[46.6036,14.0942],[46.6035,14.0947],[46.6029,14.0957],[46.602,14.0947],[46.6006,14.0945],[46.6003,14.0943],[46.5989,14.093],[46.5971,14.0909],[46.5953,14.0898],[46.5945,14.0883],[46.5921,14.0852],[46.5915,14.0845],[46.5906,14.0836],[46.5889,14.0825],[46.5878,14.0814],[46.5875,14.0815],[46.5862,14.0824],[46.5856,14.0825],[46.5849,14.0823],[46.5838,14.0815],[46.5829,14.0813],[46.5823,14.0808],[46.5818,14.0801],[46.5815,14.0793],[46.5811,14.0775],[46.581,14.0739],[46.5805,14.0725],[46.58,14.0716],[46.5796,14.0701],[46.579,14.0685],[46.5786,14.0671],[46.5783,14.0667],[46.5778,14.0665],[46.577,14.0664],[46.5763,14.0668],[46.5759,14.0667],[46.5754,14.068],[46.5749,14.0688],[46.5745,14.0696],[46.5736,14.0728],[46.5732,14.075],[46.5728,14.0759],[46.5716,14.0776],[46.5709,14.0799],[46.5706,14.0803],[46.5702,14.0806],[46.5697,14.0806],[46.5684,14.0803],[46.5676,14.0802],[46.5651,14.0813],[46.5641,14.0821],[46.5626,14.0854],[46.5621,14.0865],[46.5618,14.0879],[46.5605,14.0899],[46.5601,14.0908],[46.5598,14.0921],[46.5596,14.0936],[46.5594,14.0939],[46.5587,14.0946],[46.5583,14.0953],[46.5577,14.097],[46.5571,14.0984],[46.5569,14.0992],[46.5567,14.1005],[46.5565,14.104],[46.5562,14.105],[46.5556,14.1058],[46.554,14.1071],[46.5534,14.1078],[46.5525,14.1093],[46.5516,14.1104],[46.5511,14.1115],[46.5505,14.1126],[46.5494,14.1138],[46.5485,14.1145],[46.548,14.115],[46.5474,14.1163],[46.5461,14.118],[46.5456,14.1199],[46.5453,14.1207],[46.5435,14.1232],[46.5433,14.1239],[46.5429,14.1265],[46.5423,14.1287],[46.5421,14.1304],[46.5416,14.1331],[46.5415,14.1343],[46.541,14.136],[46.541,14.1393],[46.5409,14.1409],[46.5411,14.1415],[46.5416,14.1422],[46.5418,14.1427],[46.5424,14.1456],[46.5429,14.1465],[46.5431,14.1467],[46.5433,14.1467],[46.544,14.1461],[46.5443,14.1461],[46.5447,14.1466],[46.5451,14.1478],[46.5459,14.1484],[46.5462,14.149],[46.5467,14.1494],[46.5468,14.1497],[46.5468,14.15],[46.5463,14.1509],[46.5463,14.1519],[46.5464,14.153],[46.5464,14.1535],[46.5458,14.1556],[46.5456,14.1567],[46.5449,14.1581],[46.5448,14.1586],[46.5457,14.1617],[46.5456,14.1636],[46.5457,14.1645],[46.547,14.1684],[46.5472,14.17],[46.5468,14.1737],[46.5468,14.1752],[46.547,14.1764],[46.5475,14.1795],[46.5483,14.1812],[46.5485,14.183],[46.5489,14.1844],[46.5488,14.1858],[46.5489,14.187],[46.5492,14.1923],[46.549,14.1927],[46.5481,14.1929],[46.5479,14.1932],[46.5479,14.1936],[46.5482,14.1957],[46.5483,14.1989],[46.5485,14.1996],[46.5502,14.2042],[46.5515,14.2066],[46.5517,14.2087],[46.5516,14.2106],[46.5517,14.2121],[46.5519,14.2124],[46.5526,14.2128],[46.5532,14.2137],[46.5538,14.2152],[46.5538,14.2158],[46.5538,14.2183],[46.554,14.2192],[46.5544,14.2206],[46.5547,14.2231],[46.5554,14.2245],[46.5558,14.2263],[46.556,14.2266],[46.5573,14.2279],[46.5575,14.2284],[46.558,14.2298],[46.5585,14.2305],[46.5589,14.2315],[46.5593,14.2317],[46.5602,14.2317],[46.561,14.2322],[46.5617,14.2364],[46.5619,14.2375],[46.5625,14.2418],[46.5629,14.2434],[46.5632,14.2441],[46.5661,14.2488],[46.5675,14.2505],[46.5695,14.2523],[46.5699,14.2529],[46.5702,14.2537],[46.5706,14.2556],[46.5709,14.2563],[46.5718,14.2573],[46.5728,14.2598],[46.5729,14.261],[46.5728,14.2616],[46.5721,14.2638],[46.5721,14.2649],[46.5731,14.2708],[46.5734,14.2718],[46.5745,14.2737],[46.5769,14.277],[46.5785,14.2788],[46.5793,14.2802],[46.5807,14.2817],[46.5808,14.282],[46.5808,14.2825],[46.5826,14.2828],[46.5841,14.2826],[46.5847,14.2829],[46.5909,14.2882],[46.5959,14.2933],[46.5972,14.2944],[46.5992,14.2955],[46.6012,14.2969],[46.6039,14.2974],[46.6072,14.2988],[46.6076,14.2965],[46.6077,14.2948],[46.6075,14.2928],[46.6068,14.2896],[46.6067,14.2883],[46.6066,14.2866],[46.6067,14.2846],[46.607,14.2821],[46.6075,14.2796],[46.6085,14.2756],[46.6087,14.2737],[46.6086,14.2723],[46.6079,14.269],[46.6078,14.2669],[46.6079,14.2656],[46.6082,14.2644],[46.6088,14.2633],[46.6104,14.2611],[46.611,14.2605],[46.6117,14.2605],[46.6136,14.2611],[46.6156,14.2614]],run:[[46.6175,14.2637],[46.6171,14.2603],[46.6178,14.2603],[46.6182,14.2606],[46.6184,14.2618],[46.6187,14.2641],[46.619,14.2663],[46.6191,14.2667],[46.6193,14.2666],[46.6186,14.2618],[46.6187,14.261],[46.6186,14.2604],[46.6192,14.259],[46.6196,14.259],[46.6195,14.2571],[46.6198,14.2571],[46.62,14.2573],[46.6208,14.257],[46.6215,14.2568],[46.6222,14.2568],[46.6221,14.2572],[46.6226,14.2574],[46.6228,14.2565],[46.623,14.2561],[46.6232,14.2544],[46.6233,14.2538],[46.6231,14.2542],[46.6229,14.2545],[46.6227,14.2542],[46.6225,14.2536],[46.6211,14.2542],[46.6212,14.2549],[46.6211,14.2542],[46.6225,14.2536],[46.6224,14.2534],[46.6227,14.2531],[46.623,14.2521],[46.6231,14.251],[46.6232,14.2508],[46.6234,14.2506],[46.6235,14.2502],[46.6236,14.2502],[46.624,14.2488],[46.6263,14.2432],[46.6269,14.2413],[46.6272,14.2402],[46.6273,14.2392],[46.6277,14.2325],[46.6277,14.2307],[46.6276,14.2299],[46.6277,14.2294],[46.6274,14.2269],[46.627,14.2247],[46.6266,14.2232],[46.6258,14.2218],[46.6235,14.2206],[46.6235,14.2214],[46.6236,14.2221],[46.6236,14.2224],[46.6232,14.2233],[46.6229,14.2231],[46.6225,14.2221],[46.6228,14.2218],[46.623,14.2212],[46.6235,14.2205],[46.6217,14.2142],[46.6213,14.212],[46.6209,14.2122],[46.6207,14.2114],[46.6204,14.2098],[46.6204,14.2089],[46.6221,14.2086],[46.6225,14.2087],[46.6225,14.2089],[46.6228,14.2099],[46.6224,14.2104],[46.6224,14.2111],[46.6223,14.2113],[46.6221,14.2116],[46.6213,14.212],[46.6217,14.2142],[46.6234,14.2206],[46.6258,14.2218],[46.6266,14.2232],[46.6272,14.2256],[46.6276,14.228],[46.6277,14.2294],[46.6276,14.2299],[46.6277,14.2307],[46.6277,14.2325],[46.6272,14.2402],[46.6267,14.2422],[46.6243,14.2478],[46.6238,14.2495],[46.6234,14.2516],[46.6232,14.2544],[46.623,14.2561],[46.6227,14.2568],[46.6226,14.2574],[46.6221,14.2572],[46.6222,14.2568],[46.6215,14.2568],[46.6214,14.2569],[46.6215,14.2596],[46.6214,14.2601],[46.6209,14.2611],[46.6206,14.2621],[46.6197,14.2619],[46.6192,14.2615],[46.6189,14.2615],[46.6187,14.2615],[46.6186,14.2618],[46.6197,14.2695],[46.62,14.2718],[46.6201,14.2795],[46.6203,14.282],[46.6205,14.2836],[46.621,14.2853],[46.622,14.2908],[46.6233,14.2994],[46.6236,14.3008],[46.624,14.3021],[46.624,14.3029],[46.6242,14.3033],[46.6241,14.3028],[46.6264,14.3029],[46.6266,14.3039],[46.6266,14.3043],[46.6264,14.3045],[46.6253,14.3052],[46.6255,14.3057],[46.6255,14.3061],[46.6255,14.307],[46.6253,14.307],[46.6254,14.3094],[46.6253,14.307],[46.6252,14.3069],[46.625,14.3062],[46.6249,14.3052],[46.6249,14.3053],[46.6245,14.3054],[46.6245,14.3053],[46.6245,14.3054],[46.6244,14.3046],[46.624,14.3045],[46.624,14.3037],[46.6242,14.3035],[46.6242,14.3033],[46.624,14.3025],[46.624,14.3021],[46.6236,14.3008],[46.6233,14.2994],[46.6219,14.2904],[46.6203,14.282],[46.6201,14.2795],[46.62,14.2718],[46.6197,14.2695],[46.6186,14.2618],[46.6187,14.2612],[46.6186,14.2604],[46.6192,14.259],[46.6196,14.259],[46.6195,14.2571],[46.6198,14.2571],[46.62,14.2573],[46.6208,14.257],[46.6215,14.2568],[46.6222,14.2568],[46.6221,14.2572],[46.6226,14.2574],[46.6228,14.2565],[46.623,14.2561],[46.6232,14.2544],[46.6233,14.2538],[46.6231,14.2542],[46.6229,14.2545],[46.6227,14.2542],[46.6225,14.2536],[46.6211,14.2542],[46.6212,14.2549],[46.6211,14.2542],[46.6225,14.2536],[46.6224,14.2534],[46.6227,14.2531],[46.623,14.2521],[46.6231,14.251],[46.6232,14.2508],[46.6234,14.2506],[46.6235,14.2502],[46.6236,14.2502],[46.624,14.2488],[46.6263,14.2432],[46.6269,14.2413],[46.6272,14.2402],[46.6273,14.2392],[46.6277,14.2325],[46.6277,14.2307],[46.6276,14.2299],[46.6277,14.2294],[46.6276,14.228],[46.6274,14.2269],[46.6269,14.2243],[46.6265,14.2231],[46.6258,14.2218],[46.6235,14.2206],[46.6235,14.2214],[46.6236,14.2221],[46.6236,14.2224],[46.6232,14.2233],[46.6229,14.2231],[46.6225,14.2221],[46.6228,14.2218],[46.623,14.2212],[46.6234,14.2206],[46.6217,14.2142],[46.6213,14.212],[46.6209,14.2122],[46.6207,14.2114],[46.6204,14.2098],[46.6204,14.2089],[46.6221,14.2086],[46.6225,14.2087],[46.6225,14.2089],[46.6228,14.2099],[46.6224,14.2104],[46.6224,14.2111],[46.6223,14.2113],[46.6221,14.2116],[46.6213,14.212],[46.6217,14.2142],[46.6234,14.2206],[46.6258,14.2218],[46.6266,14.2232],[46.627,14.2247],[46.6275,14.2275],[46.6277,14.2294],[46.6276,14.2299],[46.6277,14.2307],[46.6277,14.2325],[46.6272,14.2402],[46.6267,14.2422],[46.6243,14.2478],[46.6238,14.2495],[46.6234,14.2516],[46.6232,14.2544],[46.623,14.2561],[46.6227,14.2568],[46.6226,14.2574],[46.6221,14.2572],[46.6222,14.2568],[46.6215,14.2568],[46.6214,14.2569],[46.6215,14.2596],[46.6214,14.2601],[46.6209,14.2611],[46.6206,14.2621],[46.6197,14.2619],[46.6192,14.2615],[46.6189,14.2615],[46.6187,14.2615],[46.6186,14.2618],[46.6197,14.2695],[46.62,14.2718],[46.6201,14.2795],[46.6203,14.282],[46.6205,14.2836],[46.621,14.2853],[46.6221,14.2917],[46.6233,14.2994],[46.6236,14.3008],[46.624,14.3021],[46.624,14.3029],[46.6242,14.3033],[46.6241,14.3028],[46.6264,14.3029],[46.6266,14.3043],[46.6262,14.3047],[46.6258,14.3049],[46.6258,14.305],[46.6253,14.3052],[46.6255,14.3057],[46.6255,14.3064],[46.6255,14.307],[46.6253,14.307],[46.6253,14.3092],[46.6253,14.307],[46.6252,14.3069],[46.625,14.3062],[46.6249,14.3053],[46.6245,14.3054],[46.6244,14.3046],[46.624,14.3045],[46.624,14.3037],[46.6242,14.3035],[46.6242,14.3033],[46.624,14.3027],[46.624,14.3021],[46.6236,14.3008],[46.6233,14.2994],[46.6219,14.2904],[46.6203,14.282],[46.6201,14.2795],[46.62,14.2718],[46.6198,14.2696],[46.6186,14.2618],[46.6187,14.2612],[46.6186,14.2604],[46.6192,14.259],[46.6196,14.259],[46.6195,14.2571],[46.6198,14.2571],[46.62,14.2573],[46.6208,14.257],[46.6215,14.2568],[46.6222,14.2568],[46.6221,14.2572],[46.6226,14.2574],[46.6227,14.2568],[46.623,14.2561],[46.6232,14.2544],[46.6233,14.2538],[46.6231,14.2542],[46.6229,14.2545],[46.6227,14.2542],[46.6225,14.2536],[46.6211,14.2542],[46.6212,14.2548],[46.6211,14.2542],[46.6225,14.2536],[46.6224,14.2534],[46.6211,14.2541],[46.6212,14.255]]};
+const PTS={
+  strandbad:[46.6168,14.2647], transition:[46.6160,14.2625], lendhafen:[46.6240,14.2950],
+  mariasaal:[46.6800,14.3450], stveit:[46.7667,14.3600], feldkirchen:[46.7233,14.0950],
+  poertschach:[46.6330,14.1500], velden:[46.6150,14.0420], klagenfurt:[46.6247,14.3050], krumpendorf:[46.6450,14.2150]
+};
+function getVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#fff'; }
+function mk(p,label){ L.marker(p).addTo(MAP).bindTooltip(label,{className:'maptip',direction:'top'}); }
+function initMap(){
+  const box=$('map'); if(!box) return;
+  if(typeof L==='undefined'){
+    box.style.cssText+=';display:flex;align-items:center;justify-content:center';
+    box.innerHTML='<span style="color:var(--muted);font-size:12px;padding:16px;text-align:center">Karte nicht geladen (offline?). Streckenpunkte siehe oben.</span>';
+    return;
+  }
+  MAP=L.map('map',{scrollWheelZoom:false}).setView([46.66,14.20],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(MAP);
+
+  const swimLine=ROUTES.swim, bikeLine=ROUTES.bike, runLine=ROUTES.run;
+
+  layers.swim=L.layerGroup([L.polyline(swimLine,{color:getVar('--swim'),weight:4,opacity:.9})]).addTo(MAP);
+  layers.bike=L.layerGroup([L.polyline(bikeLine,{color:getVar('--bike'),weight:4,opacity:.85})]).addTo(MAP);
+  layers.run =L.layerGroup([L.polyline(runLine,{color:getVar('--run'),weight:4,opacity:.85})]).addTo(MAP);
+
+  mk(ROUTES.swim[0],'🏁 Start · Schwimmen');
+  mk(ROUTES.bike[0],'🔁 Wechselzone · T1');
+  mk(ROUTES.run[ROUTES.run.length-1],'🏁 Ziel · Metnitzstrand');
+
+  const all=[].concat(ROUTES.swim,ROUTES.bike,ROUTES.run);
+  MAP.fitBounds(L.latLngBounds(all),{padding:[18,18]});
+  setTimeout(()=>MAP&&MAP.invalidateSize(),250);
+}
+document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
+  ch.addEventListener('click',()=>{
+    const k=ch.dataset.layer; if(!MAP||!layers[k]) return;
+    if(MAP.hasLayer(layers[k])){ MAP.removeLayer(layers[k]); ch.classList.add('off'); }
+    else { MAP.addLayer(layers[k]); ch.classList.remove('off'); }
+  });
+});
+$('gpxBtn').addEventListener('click',()=>$('gpxFile').click());
+$('gpxFile').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f||!MAP) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const xml=new DOMParser().parseFromString(rd.result,'application/xml');
+      const nodes=[...xml.getElementsByTagName('trkpt'),...xml.getElementsByTagName('rtept')];
+      const pts=nodes.map(p=>[parseFloat(p.getAttribute('lat')),parseFloat(p.getAttribute('lon'))]).filter(a=>!isNaN(a[0])&&!isNaN(a[1]));
+      if(!pts.length){ alert('Keine Trackpunkte in der GPX-Datei gefunden.'); return; }
+      if(gpxLayer) MAP.removeLayer(gpxLayer);
+      gpxLayer=L.polyline(pts,{color:'#C77DFF',weight:4,opacity:.95}).addTo(MAP);
+      MAP.fitBounds(gpxLayer.getBounds(),{padding:[20,20]});
+    }catch(err){ alert('GPX konnte nicht gelesen werden: '+err.message); }
+  };
+  rd.readAsText(f);
+});
+
+// ---- Boot ----
+(async function(){
+  await load();
+  $('f_tracker').value=state.tracker||'';
+  render();
+  initMap();
+  startPoll();
+  setInterval(render, 15000); // alle 15 s aktualisieren
+})();
+</script>
+</body>
+</html>
