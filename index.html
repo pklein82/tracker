@@ -120,6 +120,7 @@
   .col.hri .ch{color:var(--swim)}
   /* Live-Position auf der Karte */
   .livepos{animation:pulse 1.3s infinite}
+  .selhalo{animation:pulse 1s infinite}
 
   /* buttons */
   .btnrow{display:flex;gap:8px;margin-top:14px}
@@ -794,7 +795,7 @@ function initMap(){
   updateMapTimes(computeTimes(buildMilestones()));
 }
 // Passierte Durchgangspunkte rot färben (Distanz-Beschriftung bleibt); ausgewählte Matte markieren
-let selectedMat=null;
+let selectedMat=null, selMarker=null;
 function updateMapTimes(T){
   if(!MAP||!T) return;
   RACE_POINTS.forEach(p=>{
@@ -803,6 +804,10 @@ function updateMapTimes(T){
     else { m.setStyle({fillColor:getVar('--'+(SEG2DISC[p.seg]||'bike')),color:'#0A1418',weight:1.5,fillOpacity:.95}); m.setRadius(p.b?6:4); }
     if(p.n===selectedMat){ m.setStyle({color:'#FFD23F',weight:4,fillOpacity:1}); m.setRadius((p.b?7:5)+4); m.bringToFront(); }
   });
+  // großer pulsierender Halo um die gewählte Matte – deutlich sichtbar
+  if(selMarker){ MAP.removeLayer(selMarker); selMarker=null; }
+  const sp=selectedMat&&RACE_POINTS.find(p=>p.n===selectedMat);
+  if(sp&&sp.c){ selMarker=L.circleMarker(sp.c,{radius:20,color:'#FFD23F',weight:5,fillColor:'#FFD23F',fillOpacity:.2,className:'selhalo'}).addTo(MAP); selMarker.bringToFront(); }
 }
 // Aktuelle Position – ENTLANG der gezeichneten Streckenlinie zwischen den beiden Matten
 const ROUTE_DISC={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'run'};
