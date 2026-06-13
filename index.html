@@ -162,6 +162,8 @@
   .leaflet-tooltip.matlbl::before{display:none}
   .leaflet-tooltip.poslbl{background:var(--live);color:#fff;border:1px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-family:'Oswald';font-weight:700;font-size:12px;letter-spacing:.04em;padding:1px 6px;border-radius:6px}
   .leaflet-tooltip.poslbl::before{display:none}
+  .leaflet-tooltip.othlbl{background:#1b2b33;color:#fff;border:1px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-family:'Oswald';font-weight:700;font-size:11px;letter-spacing:.04em;padding:1px 5px;border-radius:6px}
+  .leaflet-tooltip.othlbl::before{display:none}
   .leaflet-tooltip.matlbl.matlbl-sel{border:2px solid #FFD23F;color:#FFD23F;background:rgba(10,20,24,.95);font-size:11px}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
@@ -395,6 +397,17 @@ function applyAthlete(key, clearLive){
   state.liveActuals=(cache&&cache.actuals)||{};
   state.liveSplits=(cache&&cache.splits)||[];
 }
+// Temporär Plan/Live-Daten eines anderen Athleten einsetzen (für dessen Positionsberechnung)
+function withAthlete(key, fn){
+  const a=ATHLETES[key]; if(!a) return;
+  const sv={athlete:state.athlete,name:state.name,start:state.start,dur:state.dur,actuals:state.actuals,liveActuals:state.liveActuals};
+  state.athlete=key; state.name=a.name; state.start=a.start; state.dur={...a.dur};
+  state.actuals=state.actualsByAthlete[key]||{};
+  const cache=state.liveByAthlete&&state.liveByAthlete[key];
+  state.liveActuals=(cache&&cache.actuals)||{};
+  try{ return fn(); } finally { Object.assign(state, sv); }
+}
+function initials(name){ return (name||'A').split(/\s+/).filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3); }
 function nextMat(){ for(const p of RACE_POINTS){ if(istMinOf(p.n)==null) return {id:p.n,c:p.c}; } const l=RACE_POINTS[RACE_POINTS.length-1]; return {id:l.n,c:l.c}; }
 async function selectAthlete(key){
   if(key===state.athlete) return;          // Klick auf den Namen oben: nur wechseln, oben bleiben
@@ -628,6 +641,7 @@ function render(){
   renderLive();
   updateMapTimes(T);
   updatePosition(T);
+  updateOtherPositions();
 }
 
 // Uhr + Rennzeit (sekündlich aktualisiert)
@@ -890,7 +904,6 @@ function courseCoordAt(col,T){
   return kmToCoord(curKm);
 }
 let posMarkers={ist:null};
-function initials(name){ return (name||'A').split(/\s+/).filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3); }
 function updatePosition(T){
   if(!MAP) return;
   const now=elapsedMin();
@@ -908,6 +921,30 @@ function updatePosition(T){
   }
   posMarkers.ist.setTooltipContent(initials(state.name)); // Kürzel, z. B. PB
   posMarkers.ist.bringToFront();
+}
+// Die anderen Athleten dauerhaft auf der Karte: schwarz & grau, mit Kürzel
+let otherMarkers={};
+const OTHER_COLORS=['#111111','#9aa0a6'];
+function updateOtherPositions(){
+  if(!MAP) return;
+  const others=Object.keys(ATHLETES).filter(k=>k!==state.athlete);
+  Object.keys(otherMarkers).forEach(k=>{ if(!others.includes(k)){ MAP.removeLayer(otherMarkers[k]); delete otherMarkers[k]; } });
+  others.forEach((k,idx)=>{
+    const pos=withAthlete(k, ()=>courseCoordAt('hrIst', computeTimes(buildMilestones())));
+    if(!pos) return;
+    const col=OTHER_COLORS[idx%OTHER_COLORS.length];
+    if(!otherMarkers[k]){
+      const m=L.circleMarker(pos,{radius:10,color:'#fff',weight:2,fillColor:col,fillOpacity:.95})
+        .addTo(MAP).bindTooltip(initials(ATHLETES[k].name),{permanent:true,direction:'right',className:'othlbl',offset:[8,0]});
+      m.on('click',()=>selectAthlete(k));
+      m._col=col; otherMarkers[k]=m;
+    } else {
+      otherMarkers[k].setLatLng(pos);
+      if(otherMarkers[k]._col!==col){ otherMarkers[k].setStyle({fillColor:col}); otherMarkers[k]._col=col; }
+      if(!MAP.hasLayer(otherMarkers[k])) otherMarkers[k].addTo(MAP);
+    }
+    otherMarkers[k].setTooltipContent(initials(ATHLETES[k].name));
+  });
 }
 // Matte markieren + Karte so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
 function markAndZoom(x){
