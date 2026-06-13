@@ -575,7 +575,7 @@ function render(){
       const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
       // Abweichung zum ursprünglichen Plan (Soll) – erst sobald es eine Ist-Zeit gibt
       let delta='&nbsp;';
-      if(col!=='plan' && T._hasIst){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
+      if(col!=='plan' && T[x.id].reached){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
         <div class="ct num">${clockFromStart(v)}</div>
