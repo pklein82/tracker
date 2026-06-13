@@ -115,6 +115,7 @@
   /* Plan am schwächsten */
   .col.plan{opacity:.6}
   .col.plan .ct{font-weight:500;font-size:14px;color:var(--muted)}
+  .col.plan .discmain{font-weight:700;font-size:16px;color:var(--text);margin-top:1px}
   /* Hochrechnungen stärker */
   .col.hrp,.col.hri{background:var(--surface2)}
   .col.hrp .ct,.col.hri .ct{font-weight:700;font-size:18px;color:var(--text)}
@@ -587,7 +588,7 @@ function render(){
         ${col!=='plan'?`<div class="ct num">${clockFromStart(v)}</div>`:''}
         <div class="cd">${delta}</div>
         <div class="cv num">Σ ${hms(v)}</div>
-        <div class="cv num">${dIcon} ${hms(v-ref)}</div>
+        <div class="${col==='plan'?'ct num discmain':'cv num'}">${dIcon} ${hms(v-ref)}</div>
         <div class="cv num">${spLine}</div>
       </div>`;
     };
@@ -876,10 +877,11 @@ function markAndZoom(x){
 }
 // Klick auf eine Matte (Ladder): markieren/zoomen + Karte in den Blick scrollen
 function focusOnPoint(x){ markAndZoom(x); const b=document.getElementById('map'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }
-// Klick auf Athlet: markieren/zoomen + zur zugehörigen Matte-Zeile scrollen (an den oberen Rand)
+// Klick auf Athlet: markieren/zoomen + zur zugehörigen Matte-Zeile scrollen (robust gegen Neu-Render)
 function focusOnField(x){
   markAndZoom(x);
-  requestAnimationFrame(()=>{ const r=document.querySelector('.rung[data-id="'+x.id+'"]'); if(r) r.scrollIntoView({behavior:'smooth',block:'start'}); });
+  const go=()=>{ const r=document.querySelector('.rung[data-id="'+x.id+'"]'); if(r){ const y=r.getBoundingClientRect().top+window.pageYOffset-8; window.scrollTo({top:y,behavior:'smooth'}); } };
+  requestAnimationFrame(go); setTimeout(go,60);
 }
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   ch.addEventListener('click',()=>{
