@@ -158,6 +158,8 @@
   /* permanente Matten-Beschriftung (zurückgelegte Distanz) */
   .leaflet-tooltip.matlbl{background:rgba(10,20,24,.82);color:#EAF4F4;border:none;box-shadow:none;font-family:'Oswald';font-weight:600;font-size:10px;letter-spacing:.02em;padding:1px 5px;border-radius:5px;white-space:nowrap}
   .leaflet-tooltip.matlbl::before{display:none}
+  .leaflet-tooltip.poslbl{background:var(--live);color:#fff;border:1px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-family:'Oswald';font-weight:700;font-size:12px;letter-spacing:.04em;padding:1px 6px;border-radius:6px}
+  .leaflet-tooltip.poslbl::before{display:none}
   .leaflet-tooltip.matlbl.matlbl-sel{border:2px solid #FFD23F;color:#FFD23F;background:rgba(10,20,24,.95);font-size:11px}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
@@ -883,6 +885,7 @@ function courseCoordAt(col,T){
   return kmToCoord(curKm);
 }
 let posMarkers={ist:null};
+function initials(name){ return (name||'A').split(/\s+/).filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3); }
 function updatePosition(T){
   if(!MAP) return;
   const now=elapsedMin();
@@ -892,13 +895,13 @@ function updatePosition(T){
   if(!posMarkers.ist){
     // einmal anlegen – Klick-Handler bleibt erhalten (kein Neu-Erzeugen pro Render)
     posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
-      .addTo(MAP).bindTooltip('',{className:'maptip',direction:'top'});
+      .addTo(MAP).bindTooltip('',{permanent:true,direction:'right',className:'poslbl',offset:[10,0]});
     posMarkers.ist.on('click',()=>{ const n=nextMat(); if(n&&n.c) focusOnField(n); }); // zur aktuellen Matte/Zeile
   } else {
     posMarkers.ist.setLatLng(pIst);
     if(!MAP.hasLayer(posMarkers.ist)) posMarkers.ist.addTo(MAP);
   }
-  posMarkers.ist.setTooltipContent((state.name||'Athlet')+' · aktuelle Position (tippen → Matte)');
+  posMarkers.ist.setTooltipContent(initials(state.name)); // Kürzel, z. B. PB
   posMarkers.ist.bringToFront();
 }
 // Matte markieren + Karte so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
