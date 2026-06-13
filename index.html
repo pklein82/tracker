@@ -836,10 +836,15 @@ function updatePosition(T){
   posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
     .addTo(MAP).bindTooltip((state.name||'Athlet')+' · aktuelle Position',{className:'maptip',direction:'top'});
 }
-// Klick auf eine Matte: Karte dorthin zoomen und in den Blick scrollen
+// Klick auf eine Matte: so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
 function focusOnPoint(x){
   if(!MAP||!x.c) return;
-  MAP.setView(x.c, 14, {animate:true});
+  const i=RACE_POINTS.findIndex(p=>p.n===x.id), cs=[];
+  if(i>0 && RACE_POINTS[i-1].c) cs.push(RACE_POINTS[i-1].c);
+  cs.push(x.c);
+  if(i>=0 && i<RACE_POINTS.length-1 && RACE_POINTS[i+1].c) cs.push(RACE_POINTS[i+1].c);
+  if(cs.length>=2) MAP.fitBounds(L.latLngBounds(cs),{padding:[50,50],maxZoom:16});
+  else MAP.setView(x.c,15,{animate:true});
   const box=document.getElementById('map'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
