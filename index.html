@@ -346,7 +346,7 @@ function renderAthletes(){
 
 // Lauf-Pacing: Positiv-Split („eingehen") – Tempo steigt linear über die Distanz,
 // Lauf-Gesamtzeit bleibt gleich. runFrac(d)=Anteil der Laufzeit nach Distanzanteil d (0..1).
-const RUN_FADE=0.30; // 0 = gleichmäßig; höher = stärkeres Einbrechen am Ende
+const RUN_FADE=0.20; // 0 = gleichmäßig; höher = stärkeres Einbrechen am Ende
 function runFrac(d){ return d + (RUN_FADE/2)*(d*d - d); }
 // Soll-Stützpunkte (km, Minuten ab Start): Schwimmen/Wechsel linear, Rad nach Profil, Lauf mit Fade.
 function planBreakpoints(){
