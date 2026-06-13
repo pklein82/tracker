@@ -782,14 +782,30 @@ function updateMapTimes(T){
     else { m.setStyle({fillColor:getVar('--'+(SEG2DISC[p.seg]||'bike')),color:'#0A1418',weight:1.5,fillOpacity:.95}); m.setRadius(p.b?6:4); }
   });
 }
-// Aktuelle Position auf der Strecke (per Spalte) – zwischen den Matten nach Zeit interpoliert
+// Aktuelle Position – ENTLANG der gezeichneten Streckenlinie zwischen den beiden Matten
+const ROUTE_DISC={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'run'};
+function nearestIdx(line,c){ let bi=0,bd=Infinity; for(let i=0;i<line.length;i++){ const dx=line[i][0]-c[0], dy=line[i][1]-c[1], d=dx*dx+dy*dy; if(d<bd){bd=d;bi=i;} } return bi; }
+function subPathCoord(line,iA,iB,f){
+  let idx=[]; if(iB>=iA){ for(let i=iA;i<=iB;i++) idx.push(i); } else { for(let i=iA;i<line.length;i++) idx.push(i); for(let i=0;i<=iB;i++) idx.push(i); }
+  if(idx.length<2) return line[iA];
+  const seg=[]; let tot=0;
+  for(let k=1;k<idx.length;k++){ const a=line[idx[k-1]],b=line[idx[k]]; const dx=b[0]-a[0], dy=(b[1]-a[1])*Math.cos(a[0]*Math.PI/180); const d=Math.hypot(dx,dy); seg.push(d); tot+=d; }
+  let target=tot*Math.max(0,Math.min(1,f)), acc=0;
+  for(let k=0;k<seg.length;k++){ if(acc+seg[k]>=target){ const a=line[idx[k]],b=line[idx[k+1]], ff=seg[k]?(target-acc)/seg[k]:0; return [a[0]+(b[0]-a[0])*ff, a[1]+(b[1]-a[1])*ff]; } acc+=seg[k]; }
+  return line[idx[idx.length-1]];
+}
 function courseCoordAt(col,T){
   const now=elapsedMin();
   const pts=RACE_POINTS;
   if(now<=0) return pts[0].c;
   for(let i=1;i<pts.length;i++){
-    const ta=T[pts[i-1].n][col], tb=T[pts[i].n][col];
-    if(now<=tb){ const f=tb>ta?(now-ta)/(tb-ta):0; const a=pts[i-1].c,b=pts[i].c; return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f]; }
+    const A=pts[i-1], B=pts[i], ta=T[A.n][col], tb=T[B.n][col];
+    if(now<=tb){
+      const f=tb>ta?(now-ta)/(tb-ta):0;
+      const line=ROUTES[ROUTE_DISC[B.seg]]||ROUTES.bike;
+      const c=subPathCoord(line, nearestIdx(line,A.c), nearestIdx(line,B.c), f);
+      return c||B.c;
+    }
   }
   return pts[pts.length-1].c;
 }
