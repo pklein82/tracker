@@ -57,8 +57,11 @@
     background:var(--surface);
   }
   .status .top{display:flex;align-items:baseline;justify-content:space-between;padding:14px 16px 8px}
-  .clock{font-family:'Oswald';font-weight:600;font-size:30px;letter-spacing:.02em}
+  .clocks{display:flex;flex-direction:column;gap:1px}
+  .clock{font-family:'Oswald';font-weight:700;font-size:30px;letter-spacing:.02em;line-height:1}
   .clock small{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+  .nowclock{font-family:'Oswald';font-weight:600;font-size:15px;color:var(--muted);letter-spacing:.02em}
+  .nowclock small{font-size:11px;margin-left:5px}
   .phase{font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px}
   .eta{display:flex;gap:10px;padding:6px 16px 12px}
   .etac{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
@@ -205,7 +208,10 @@
 
     <div class="status">
       <div class="top">
-        <div class="clock num" id="clock">--:--<small id="clockSub">jetzt</small></div>
+        <div class="clocks">
+          <div class="clock num" id="raceTime">0:00:00<small>im Rennen</small></div>
+          <div class="nowclock num" id="clock">--:--<small id="clockSub">Uhr</small></div>
+        </div>
         <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
       </div>
       <div class="eta">
@@ -617,11 +623,15 @@ function render(){
   updatePosition(T);
 }
 
+// Uhr + Rennzeit (sekündlich aktualisiert)
+function updateTopClocks(){
+  const now=nowDate(), c=$('clock'); if(c&&c.firstChild) c.firstChild.textContent=pad(now.getHours())+':'+pad(now.getMinutes());
+  const cs=$('clockSub'); if(cs) cs.textContent=SIM?'SIM-Uhr':'Uhr';
+  const el=elapsedMin(), rt=$('raceTime'); if(rt&&rt.firstChild) rt.firstChild.textContent= el<0?'–:--':hms(el);
+}
 function renderStatus(ms,elapsed,tot){
   const phase=$('phase'), line=$('statusline'), fill=$('barfill');
-  const now=nowDate();
-  $('clock').firstChild.textContent=pad(now.getHours())+':'+pad(now.getMinutes());
-  const cs=$('clockSub'); if(cs) cs.textContent=SIM?'SIM':'jetzt';
+  updateTopClocks();
 
   const COL={swim:'var(--swim)',bike:'var(--bike)',run:'var(--run)',finish:'var(--finish)'};
   const d=state.dur;
@@ -931,6 +941,8 @@ document.getElementById('athletes').addEventListener('click',e=>{
   render();
   initMap();
   startPoll();
+  updateTopClocks();
+  setInterval(updateTopClocks, 1000); // Uhr + Rennzeit sekündlich
   setInterval(render, 10000); // alle 10 s aktualisieren
 })();
 </script>
