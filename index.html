@@ -43,7 +43,7 @@
   }
   .eyebrow{font-family:'Oswald';font-weight:500;letter-spacing:.28em;text-transform:uppercase;font-size:11px;color:var(--swim)}
   h1{font-family:'Oswald';font-weight:700;font-size:34px;line-height:.98;letter-spacing:.01em;margin:4px 0 2px}
-  h1 .who{background:var(--live);color:#fff;padding:0 8px;border-radius:8px;display:inline-block}
+  h1 .who{color:var(--live)}
   .meta{font-size:12.5px;color:var(--muted);margin-top:6px}
   .meta b{color:var(--text);font-weight:600}
   .athletes{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
@@ -196,7 +196,7 @@
   <div class="wrap">
     <div class="eyebrow">Ironman Kärnten · Klagenfurt</div>
     <h1>Race Tracker<br><span class="who" id="who">Patrick</span></h1>
-    <div class="meta">So. <b>14.06.2026</b> · Start <b id="startMeta">06:35</b> · Ziel-Soll <b id="finishMeta">16:31</b> · Sollzeit <b id="goalMeta">9:56</b></div>
+    <div class="meta">So. <b>14.06.2026</b></div>
 
     <div class="athletes" id="athletes"></div>
 
@@ -389,7 +389,7 @@ function applyAthlete(key, clearLive){
 function nextMat(){ for(const p of RACE_POINTS){ if(istMinOf(p.n)==null) return {id:p.n,c:p.c}; } const l=RACE_POINTS[RACE_POINTS.length-1]; return {id:l.n,c:l.c}; }
 async function selectAthlete(key){
   if(key!==state.athlete){ applyAthlete(key,true); await save(); renderAthletes(); render(); startPoll(); }
-  const n=nextMat(); if(n&&n.c) focusOnPoint(n); // Sprung zur aktuell nächsten Matte
+  const n=nextMat(); if(n&&n.c) focusOnField(n); // Sprung zur aktuell nächsten Matte-Zeile
 }
 function renderAthletes(){
   const box=document.getElementById('athletes'); if(!box) return;
@@ -538,9 +538,6 @@ const ICON={swim:'🏊',bike:'🚴',run:'🏃',finish:'🏁'};
 
 function render(){
   $('who').textContent=state.name||'Athlet';
-  $('startMeta').textContent=state.start;
-  $('finishMeta').textContent=clockFromStart(totalMin());
-  $('goalMeta').textContent=minToHM(totalMin());
   const lr=$('lastRecv'); if(lr){
     if(SIM) lr.textContent='Simulationsmodus aktiv (keine echten Tracker-Daten).';
     else if(lastLiveTs){ const t=new Date(lastLiveTs); lr.textContent='Zuletzt vom Tracker empfangen: '+pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds()); }
@@ -570,10 +567,18 @@ function render(){
     const isTrans = x.seg==='t1'||x.seg==='t2';
     const dist = prev? x.km-prev.km : 0;
     const dIcon = isTrans?'🔁':(ICON[x.disc]||'');
+    const spSeg = x.seg==='finish'?'run':x.seg;                       // Ziel zählt zum Laufen
+    const segStartKm = spSeg==='swim'?0 : spSeg==='bike'?KM.t1 : spSeg==='run'?KM.t2 : null;
     const cell = (lab,cls,col)=>{
       const v=T[x.id][col];
       const ref=T[DSTART[x.seg]]?T[DSTART[x.seg]][col]:0;
-      const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
+      // Tempo: Abschnitt (seit letzter Matte) + Gesamt (seit Disziplinstart)
+      let spLine='&nbsp;';
+      if(segStartKm!=null){
+        const leg = prev? legSpeed(spSeg, v-T[prev.id][col], dist) : '';
+        const avg = legSpeed(spSeg, v-ref, x.km-segStartKm);
+        spLine = (leg||'') + (avg? (leg?' · ⌀ ':'⌀ ')+avg : '') || '&nbsp;';
+      }
       // Abweichung zum ursprünglichen Plan (Soll) – erst sobald es eine Ist-Zeit gibt
       let delta='&nbsp;';
       if(col!=='plan' && T[x.id].reached && x.id!=='START'){ const d=Math.round(v-T[x.id].plan); const c2=d===0?'even':(d<0?'ahead':'behind'); const s=d===0?'':(d<0?'−':'+'); delta=`<span class="delta ${c2}">${s}${Math.abs(d)} min</span>`; }
@@ -583,7 +588,7 @@ function render(){
         <div class="cd">${delta}</div>
         <div class="cv num">Σ ${hms(v)}</div>
         <div class="cv num">${dIcon} ${hms(v-ref)}</div>
-        <div class="cv num">${sp||'&nbsp;'}</div>
+        <div class="cv num">${spLine}</div>
       </div>`;
     };
     const div=document.createElement('div');
@@ -857,8 +862,8 @@ function updatePosition(T){
   posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
     .addTo(MAP).bindTooltip((state.name||'Athlet')+' · aktuelle Position',{className:'maptip',direction:'top'});
 }
-// Klick auf eine Matte: so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
-function focusOnPoint(x){
+// Matte markieren + Karte so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
+function markAndZoom(x){
   if(!MAP||!x.c) return;
   selectedMat=x.id;
   updateMapTimes(computeTimes(buildMilestones())); // Markierung sofort anwenden
@@ -868,8 +873,11 @@ function focusOnPoint(x){
   if(i>=0 && i<RACE_POINTS.length-1 && RACE_POINTS[i+1].c) cs.push(RACE_POINTS[i+1].c);
   if(cs.length>=2) MAP.fitBounds(L.latLngBounds(cs),{padding:[50,50],maxZoom:16});
   else MAP.setView(x.c,15,{animate:true});
-  const box=document.getElementById('map'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// Klick auf eine Matte (Ladder): markieren/zoomen + Karte in den Blick scrollen
+function focusOnPoint(x){ markAndZoom(x); const b=document.getElementById('map'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }
+// Klick auf Athlet: markieren/zoomen + zur zugehörigen Matte-Zeile scrollen
+function focusOnField(x){ markAndZoom(x); const r=document.querySelector('.rung[data-id="'+x.id+'"]'); if(r) r.scrollIntoView({behavior:'smooth',block:'center'}); }
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   ch.addEventListener('click',()=>{
     const k=ch.dataset.layer; if(!MAP||!layers[k]) return;
