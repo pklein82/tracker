@@ -309,7 +309,7 @@ let state = {
   dur:{swim:74, t1:7, bike:300, t2:5, run:210}, // Minuten
   actuals:{},      // id -> "HH:MM"  (manuell, hat Vorrang)
   tracker:'',
-  live:{ url:'', event:'', bib:'', on:false }, // RTRT.me-Abruf
+  live:{ url:'', event:'IRM-AUSTRIA-2026', bib:'RD8XEHJF', on:false }, // RTRT.me-Abruf (PID Patrick)
   liveActuals:{},  // id -> "HH:MM" (automatisch gemappt)
   liveSplits:[]    // letzter Roh-Snapshot {label,tod,net}
 };
@@ -368,7 +368,7 @@ async function load(){
   if(s){ state=Object.assign(state,s);
     state.dur=Object.assign({swim:74,t1:7,bike:300,t2:5,run:210},s.dur||{});
     state.actuals=s.actuals||{};
-    state.live=Object.assign({url:'',event:'',bib:'',on:false},s.live||{});
+    state.live=Object.assign({url:'',event:'IRM-AUSTRIA-2026',bib:'RD8XEHJF',on:false},s.live||{});
     state.liveActuals=s.liveActuals||{};
     state.liveSplits=s.liveSplits||[];
   }

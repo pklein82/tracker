@@ -18,7 +18,7 @@
  * IRONMAN-Web-Tracker (siehe README, Schritt "appid & event finden").
  */
 
-const APPID = "PUT_YOUR_APPID_HERE"; // <-- hier die RTRT.me appid eintragen
+const APPID = "52139b797871851e0800638e"; // RTRT.me appid (IRONMAN-Tracker)
 const ALLOW_ORIGIN = "*";            // optional: auf deine Domain einschränken, z. B. "https://patrick.pages.dev"
 
 let TOKEN = null;
