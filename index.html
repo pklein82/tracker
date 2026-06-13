@@ -88,18 +88,20 @@
   .src{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--run);font-family:'Oswald'}
   /* Spalten */
   .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:9px}
-  .col{text-align:center;border-radius:9px;padding:6px 3px 5px}
-  .ch{font-family:'Oswald';font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
-  .ct{font-family:'Oswald';letter-spacing:.02em;line-height:1}
-  .cv{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.01em}
+  .col{text-align:center;border-radius:9px;padding:6px 3px 6px}
+  .ch{font-family:'Oswald';font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .ct{font-family:'Oswald';letter-spacing:.02em;line-height:1;margin-bottom:3px}
+  .cv{font-size:9px;color:var(--muted);margin-top:1.5px;letter-spacing:.01em;line-height:1.25}
   /* Plan am schwächsten */
   .col.plan{opacity:.6}
-  .col.plan .ct{font-weight:500;font-size:15px;color:var(--muted)}
+  .col.plan .ct{font-weight:500;font-size:14px;color:var(--muted)}
   /* Hochrechnungen stärker */
   .col.hrp,.col.hri{background:var(--surface2)}
-  .col.hrp .ct,.col.hri .ct{font-weight:700;font-size:19px;color:var(--text)}
+  .col.hrp .ct,.col.hri .ct{font-weight:700;font-size:18px;color:var(--text)}
   .col.hri{box-shadow:inset 0 0 0 1px rgba(43,192,196,.22)}
   .col.hri .ch{color:var(--swim)}
+  /* Live-Position auf der Karte */
+  .livepos{animation:pulse 1.3s infinite}
 
   /* buttons */
   .btnrow{display:flex;gap:8px;margin-top:14px}
@@ -201,7 +203,7 @@
   <div class="sec-title">Zeitmessungspunkte · Soll · Ist · Prognose</div>
   <div class="ladder" id="ladder"></div>
 
-  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>HR Plan</b> = Soll + aktueller Vorsprung/Rückstand · <b>HR Ist</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie HR Plan). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte zusätzlich das Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km).</div>
+  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>HR Plan</b> = Soll + aktueller Vorsprung/Rückstand · <b>HR Ist</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie HR Plan). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte zeigt der pulsierende Punkt Patricks aktuelle Position (HR Ist), der graue die Soll-Position.</div>
 
   <div class="foot">
     Tippe einen Messpunkt für eine manuelle Ist-Zeit an (überschreibt die Live-Zeit).
@@ -264,6 +266,8 @@ const RACE_POINTS=[
   {n:'FINISH',l:'ZIEL',          km:226.922, seg:'finish', b:1, c:[46.62119,14.25498]},
 ];
 const SEG2DISC={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'finish'};
+// Disziplin-Startpunkt je Segment (für „Zeit in Disziplin")
+const DSTART={swim:'START',t1:'SWIM',bike:'T1',t2:'BIKE',run:'T2',finish:'T2'};
 // kumulierte Streckengrenzen (km) der Matten oben -> für Soll-Zeit-Interpolation
 const KM={swimEnd:3.81, t1:4.47, bikeEnd:184.322, t2:184.57, finish:226.922};
 // Geplante Rad-Splits: kumulierte Rad-Zeit (min) je Rad-Punkt – Referenzprofil, Rad gesamt 4:58:35.
@@ -351,6 +355,12 @@ function legSpeed(seg,durMin,distKm){
   if(seg==='run'){ const p=durMin/distKm; const m=Math.floor(p); return m+':'+pad(Math.round((p-m)*60))+'/km'; }
   return '';
 }
+// Dauer (Minuten) als h:mm:ss bzw. m:ss
+function hms(min){
+  if(min==null||isNaN(min)) return '';
+  let s=Math.max(0,Math.round(min*60)); const h=Math.floor(s/3600); s-=h*3600; const m=Math.floor(s/60); s-=m*60;
+  return (h>0? h+':'+pad(m) : ''+m)+':'+pad(s);
+}
 // Soll / HR Plan / HR Ist (Minuten ab Start) je Punkt – genutzt von Ladder UND Karte
 function computeTimes(ms){
   let lastReached=null;
@@ -430,9 +440,6 @@ function render(){
   const L=$('ladder'); L.innerHTML='';
   let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
-  const tPlan  = x=>T[x.id].plan;
-  const tHrPlan= x=>T[x.id].hrPlan;
-  const tHrIst = x=>T[x.id].hrIst;
 
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
@@ -441,8 +448,19 @@ function render(){
     const prev = i>0?ms[i-1]:null;
     const isTrans = x.seg==='t1'||x.seg==='t2';
     const dist = prev? x.km-prev.km : 0;
-    const spd = tf => (prev&&!isTrans)? legSpeed(x.seg, tf(x)-tf(prev), dist) : '';
-    const cell = (lab,cls,tf)=>`<div class="col ${cls}"><div class="ch">${lab}</div><div class="ct num">${clockFromStart(tf(x))}</div><div class="cv num">${spd(tf)||'&nbsp;'}</div></div>`;
+    const dIcon = isTrans?'🔁':(ICON[x.disc]||'');
+    const cell = (lab,cls,col)=>{
+      const v=T[x.id][col];
+      const ref=T[DSTART[x.seg]]?T[DSTART[x.seg]][col]:0;
+      const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
+      return `<div class="col ${cls}">
+        <div class="ch">${lab}</div>
+        <div class="ct num">${clockFromStart(v)}</div>
+        <div class="cv num">Σ ${hms(v)}</div>
+        <div class="cv num">${dIcon} ${hms(v-ref)}</div>
+        <div class="cv num">${sp||'&nbsp;'}</div>
+      </div>`;
+    };
     const div=document.createElement('div');
     div.className='rung '+x.disc+(reached?' done':'')+(isTarget?' target':'');
     div.dataset.id=x.id;
@@ -453,9 +471,9 @@ function render(){
         <span class="rsub">${x.sub}</span>
       </div>
       <div class="cols">
-        ${cell('Soll','plan',tPlan)}
-        ${cell('HR · Plan','hrp',tHrPlan)}
-        ${cell('HR · Ist','hri',tHrIst)}
+        ${cell('Soll','plan','plan')}
+        ${cell('HR · Plan','hrp','hrPlan')}
+        ${cell('HR · Ist','hri','hrIst')}
       </div>`;
     div.addEventListener('click',()=>openSheet(x));
     L.appendChild(div);
@@ -464,6 +482,7 @@ function render(){
   renderStatus(ms,elapsed,tot);
   renderLive();
   updateMapTimes(T);
+  updatePosition(T);
 }
 
 function renderStatus(ms,elapsed,tot){
@@ -658,6 +677,29 @@ function updateMapTimes(T){
     if(r.reached){ m.setStyle({color:'#EAF4F4',weight:2,fillOpacity:1}); m.setRadius(p.b?7:5); }
   });
 }
+// Aktuelle Position auf der Strecke (per Spalte) – zwischen den Matten nach Zeit interpoliert
+function courseCoordAt(col,T){
+  const now=(Date.now()-startDate().getTime())/60000;
+  const pts=RACE_POINTS;
+  if(now<=0) return pts[0].c;
+  for(let i=1;i<pts.length;i++){
+    const ta=T[pts[i-1].n][col], tb=T[pts[i].n][col];
+    if(now<=tb){ const f=tb>ta?(now-ta)/(tb-ta):0; const a=pts[i-1].c,b=pts[i].c; return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f]; }
+  }
+  return pts[pts.length-1].c;
+}
+let posMarkers={plan:null,ist:null};
+function updatePosition(T){
+  if(!MAP) return;
+  ['plan','ist'].forEach(k=>{ if(posMarkers[k]){ MAP.removeLayer(posMarkers[k]); posMarkers[k]=null; } });
+  const now=(Date.now()-startDate().getTime())/60000;
+  if(now<0 || now>T.FINISH.hrIst+3) return; // nur während des Rennens
+  const pPlan=courseCoordAt('hrPlan',T), pIst=courseCoordAt('hrIst',T);
+  posMarkers.plan=L.circleMarker(pPlan,{radius:6,color:'#fff',weight:2,fillColor:getVar('--muted'),fillOpacity:.85})
+    .addTo(MAP).bindTooltip('Soll-Position jetzt',{className:'maptip',direction:'top'});
+  posMarkers.ist=L.circleMarker(pIst,{radius:8,color:'#fff',weight:2.5,fillColor:getVar('--swim'),fillOpacity:1,className:'livepos'})
+    .addTo(MAP).bindTooltip('Patrick · jetzt (HR Ist)',{className:'maptip',direction:'top'});
+}
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   ch.addEventListener('click',()=>{
     const k=ch.dataset.layer; if(!MAP||!layers[k]) return;
@@ -672,7 +714,7 @@ document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   render();
   initMap();
   startPoll();
-  setInterval(render, 15000); // alle 15 s aktualisieren
+  setInterval(render, 10000); // alle 10 s aktualisieren
 })();
 </script>
 </body>
