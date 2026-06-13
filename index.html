@@ -318,6 +318,30 @@ let state = {
 };
 let pollTimer=null;
 
+// ---- Simulation / Demo ----
+// URL-Parameter:  ?sim=1            Renntag im Zeitraffer (Standard 120×) ab Startzeit
+//                 ?sim=1&simx=60    Zeitraffer-Faktor (60× = 10h-Rennen in 10 min)
+//                 ?sim=1&simmin=210 feste Position (Minuten seit Start), läuft nicht weiter
+const SIM=(()=>{ try{
+  const q=new URLSearchParams(location.search);
+  if(!(q.get('sim')==='1'||q.has('simmin'))) return null;
+  return { x:parseFloat(q.get('simx')||'120'), fixed:q.has('simmin')?parseFloat(q.get('simmin')):null, t0:Date.now() };
+}catch(e){ return null; } })();
+function simElapsed(){ return SIM.fixed!=null ? SIM.fixed : ((Date.now()-SIM.t0)/60000)*SIM.x; }
+function elapsedMin(){ return SIM ? simElapsed() : (Date.now()-startDate().getTime())/60000; }
+function nowDate(){ return SIM ? new Date(startDate().getTime()+simElapsed()*60000) : new Date(); }
+// Erzeugt plausible Ist-Zeiten für den aktuellen Athleten (leichte Abweichung vom Plan)
+function simTick(){
+  const ms=buildMilestones(), el=elapsedMin();
+  const mult={swim:1.0,t1:1.0,bike:0.98,t2:1.0,run:1.06}; // Rad etwas schneller, Lauf etwas langsamer
+  const va={patrick:0,kurt:0.02,georg:-0.02}[state.athlete]||0;
+  let prevPlan=0, prevAct=0; const act={};
+  ms.forEach(x=>{ const a=prevAct+(x.t-prevPlan)*((mult[x.seg]||1)+va); if(a<=el) act[x.id]=clockFromStart(Math.round(a)); prevPlan=x.t; prevAct=a; });
+  state.liveByAthlete[state.athlete]={actuals:act, splits:Object.keys(act).map(id=>({point:id,label:id,tod:act[id],net:''}))};
+  state.liveActuals=act;
+  render();
+}
+
 // ---- Helpers ----
 const pad = n => String(n).padStart(2,'0');
 function parseHM(str){ // "1:14" oder "74" (min) je nach Kontext - hier h:mm -> min
@@ -504,7 +528,7 @@ function render(){
   $('goalMeta').textContent=minToHM(totalMin());
 
   const ms=buildMilestones();
-  const elapsed=(Date.now()-startDate().getTime())/60000;
+  const elapsed=elapsedMin();
   const tot=totalMin();
 
   // ladder
@@ -564,8 +588,9 @@ function render(){
 
 function renderStatus(ms,elapsed,tot){
   const phase=$('phase'), line=$('statusline'), fill=$('barfill');
-  const now=new Date();
+  const now=nowDate();
   $('clock').firstChild.textContent=pad(now.getHours())+':'+pad(now.getMinutes());
+  const cs=$('clockSub'); if(cs) cs.textContent=SIM?'SIM':'jetzt';
 
   const COL={swim:'var(--swim)',bike:'var(--bike)',run:'var(--run)',finish:'var(--finish)'};
   const d=state.dur;
@@ -680,7 +705,10 @@ async function fetchAllLive(){
   state.liveActuals=cur.actuals||{}; state.liveSplits=cur.splits||[];
   await save(); render();
 }
-function startPoll(){ stopPoll(); if(state.live.on){ fetchAllLive(); pollTimer=setInterval(fetchAllLive,60000); } }
+function startPoll(){ stopPoll();
+  if(SIM){ simTick(); pollTimer=setInterval(simTick,1000); return; } // Demo: 1×/s im Zeitraffer
+  if(state.live.on){ fetchAllLive(); pollTimer=setInterval(fetchAllLive,60000); }
+}
 function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 function esc(t){ return String(t).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
 function renderLive(){
@@ -756,7 +784,7 @@ function updateMapTimes(T){
 }
 // Aktuelle Position auf der Strecke (per Spalte) – zwischen den Matten nach Zeit interpoliert
 function courseCoordAt(col,T){
-  const now=(Date.now()-startDate().getTime())/60000;
+  const now=elapsedMin();
   const pts=RACE_POINTS;
   if(now<=0) return pts[0].c;
   for(let i=1;i<pts.length;i++){
@@ -769,7 +797,7 @@ let posMarkers={plan:null,ist:null};
 function updatePosition(T){
   if(!MAP) return;
   ['plan','ist'].forEach(k=>{ if(posMarkers[k]){ MAP.removeLayer(posMarkers[k]); posMarkers[k]=null; } });
-  const now=(Date.now()-startDate().getTime())/60000;
+  const now=elapsedMin();
   if(now<0 || now>T.FINISH.hrIst+3) return; // nur während des Rennens
   const pPlan=courseCoordAt('hrPlan',T), pIst=courseCoordAt('hrIst',T);
   posMarkers.plan=L.circleMarker(pPlan,{radius:7,color:'#fff',weight:2,fillColor:getVar('--muted'),fillOpacity:.85})
