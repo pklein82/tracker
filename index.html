@@ -21,9 +21,9 @@
     --line:#1F3D49;
     --text:#EAF4F4;
     --muted:#7C98A1;
-    --swim:#2BC0C4;
+    --swim:#6FA03C;
     --bike:#B388FF;
-    --run:#E8514F;
+    --run:#3E8EF7;
     --finish:#FFD23F;
     --ahead:#37D67A;
     --behind:#FF6B6B;
@@ -636,14 +636,14 @@ function renderStatus(ms,elapsed,tot){
   }
   if(elapsed>=tot){
     phase.textContent='Im Ziel'; phase.style.background='var(--finish)'; phase.style.color='#04181a';
-    line.innerHTML=`Soll: Patrick ist im Ziel 🏁 · Sollzeit <b>${minToHM(tot)}</b> (${clockFromStart(tot)})`;
+    line.innerHTML=`Im Ziel 🏁 · Sollzeit <b>${minToHM(tot)}</b> (${clockFromStart(tot)})`;
     fill.style.width='100%'; fill.style.background='var(--finish)';
     return;
   }
   const seg=segs.find(s=>elapsed>=s.a&&elapsed<s.b)||segs[0];
   const segPct=Math.round((elapsed-seg.a)/(seg.b-seg.a)*100);
   const overallPct=Math.round(elapsed/tot*100);
-  phase.textContent='Soll: '+seg.n; phase.style.background=COL[seg.disc]; phase.style.color='#04181a';
+  phase.textContent=seg.n; phase.style.background=COL[seg.disc]; phase.style.color='#04181a';
   // distance estimate within discipline
   let extra='';
   if(seg.n==='Schwimmen') extra=` · ~${(3.8*segPct/100).toFixed(1)} km`;
