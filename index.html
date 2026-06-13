@@ -19,14 +19,14 @@
     --text:#EAF4F4;
     --muted:#7C98A1;
     --swim:#2BC0C4;
-    --bike:#F2A93B;
+    --bike:#B388FF;
     --run:#E8514F;
     --finish:#FFD23F;
     --ahead:#37D67A;
     --behind:#FF6B6B;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  html,body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color-scheme:dark}
   body{padding:0 0 64px;overflow-x:hidden}
   .wrap{max-width:540px;margin:0 auto;padding:0 16px}
   .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
@@ -216,7 +216,7 @@
     <h3 id="sheetTitle">Messpunkt</h3>
     <p id="sheetSub">Soll-Zeit —</p>
     <button class="now-btn" id="setNow">Jetzt durch (aktuelle Uhrzeit)</button>
-    <div class="field"><label>oder Uhrzeit eintragen (HH:MM)</label><input id="sheetInput" type="text" inputmode="numeric" placeholder="z. B. 09:42"></div>
+    <div class="field"><label>oder Uhrzeit eintragen</label><input id="sheetInput" type="time" step="60"></div>
     <div class="row">
       <button id="sheetClear" class="clear">Löschen</button>
       <button id="sheetSave" style="background:var(--swim);color:#04181a;border-color:var(--swim)">Eintragen</button>
@@ -695,9 +695,9 @@ function updatePosition(T){
   const now=(Date.now()-startDate().getTime())/60000;
   if(now<0 || now>T.FINISH.hrIst+3) return; // nur während des Rennens
   const pPlan=courseCoordAt('hrPlan',T), pIst=courseCoordAt('hrIst',T);
-  posMarkers.plan=L.circleMarker(pPlan,{radius:6,color:'#fff',weight:2,fillColor:getVar('--muted'),fillOpacity:.85})
+  posMarkers.plan=L.circleMarker(pPlan,{radius:7,color:'#fff',weight:2,fillColor:getVar('--muted'),fillOpacity:.85})
     .addTo(MAP).bindTooltip('Soll-Position jetzt',{className:'maptip',direction:'top'});
-  posMarkers.ist=L.circleMarker(pIst,{radius:8,color:'#fff',weight:2.5,fillColor:getVar('--swim'),fillOpacity:1,className:'livepos'})
+  posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:getVar('--swim'),fillOpacity:1,className:'livepos'})
     .addTo(MAP).bindTooltip('Patrick · jetzt (HR Ist)',{className:'maptip',direction:'top'});
 }
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
