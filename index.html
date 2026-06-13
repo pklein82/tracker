@@ -857,13 +857,21 @@ function courseCoordAt(col,T){
 let posMarkers={ist:null};
 function updatePosition(T){
   if(!MAP) return;
-  if(posMarkers.ist){ MAP.removeLayer(posMarkers.ist); posMarkers.ist=null; }
   const now=elapsedMin();
-  if(now<0 || now>T.FINISH.hrIst+3) return; // nur während des Rennens
+  const show = now>=0 && now<=T.FINISH.hrIst+3; // nur während des Rennens
+  if(!show){ if(posMarkers.ist){ MAP.removeLayer(posMarkers.ist); posMarkers.ist=null; } return; }
   const pIst=courseCoordAt('hrIst',T);
-  posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
-    .addTo(MAP).bindTooltip((state.name||'Athlet')+' · aktuelle Position',{className:'maptip',direction:'top'});
-  posMarkers.ist.on('click',()=>{ const n=nextMat(); if(n&&n.c) focusOnField(n); }); // Klick auf Athleten-Punkt: zur aktuellen Matte/Zeile
+  if(!posMarkers.ist){
+    // einmal anlegen – Klick-Handler bleibt erhalten (kein Neu-Erzeugen pro Render)
+    posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
+      .addTo(MAP).bindTooltip('',{className:'maptip',direction:'top'});
+    posMarkers.ist.on('click',()=>{ const n=nextMat(); if(n&&n.c) focusOnField(n); }); // zur aktuellen Matte/Zeile
+  } else {
+    posMarkers.ist.setLatLng(pIst);
+    if(!MAP.hasLayer(posMarkers.ist)) posMarkers.ist.addTo(MAP);
+  }
+  posMarkers.ist.setTooltipContent((state.name||'Athlet')+' · aktuelle Position (tippen → Matte)');
+  posMarkers.ist.bringToFront();
 }
 // Matte markieren + Karte so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
 function markAndZoom(x){
