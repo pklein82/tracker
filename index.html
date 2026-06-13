@@ -57,10 +57,12 @@
   .clock small{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
   .phase{font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px}
   .eta{display:flex;gap:10px;padding:6px 16px 12px}
-  .eta>div{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
-  .etak{font-family:'Oswald';font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .etac{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
+  .etak{font-family:'Oswald';font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   .etav{font-family:'Oswald';font-weight:700;font-size:25px;letter-spacing:.01em;margin-top:2px;line-height:1}
-  .eta>div:last-child .etav{color:var(--swim)}
+  .etas{font-family:'Oswald';font-weight:600;font-size:12px;color:var(--muted);margin-top:3px}
+  .etac.ki{box-shadow:inset 0 0 0 1px rgba(43,192,196,.3)}
+  .etac.ki .etav{color:var(--swim)}
   .statusline{padding:0 16px 14px;font-size:14px;color:var(--text)}
   .statusline span{color:var(--muted)}
   .bar{height:6px;background:var(--surface2);border-radius:99px;margin:0 16px 16px;overflow:hidden}
@@ -192,8 +194,8 @@
         <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
       </div>
       <div class="eta">
-        <div><div class="etak">ETA Ziel (Uhrzeit)</div><div class="etav num" id="etaClock">—</div></div>
-        <div><div class="etak">Hochger. Gesamtzeit</div><div class="etav num" id="etaTotal">—</div></div>
+        <div class="etac pl"><div class="etak">Soll (Plan) · Ziel</div><div class="etav num" id="etaClockPlan">—</div><div class="etas num" id="etaTotalPlan">—</div></div>
+        <div class="etac ki"><div class="etak">Soll (KI) · Ziel</div><div class="etav num" id="etaClockKi">—</div><div class="etas num" id="etaTotalKi">—</div></div>
       </div>
       <div class="statusline" id="statusline">—</div>
       <div class="bar"><i id="barfill" style="background:var(--swim)"></i></div>
@@ -221,7 +223,7 @@
   <div class="sec-title">Zeitmessungspunkte · Soll · Ist · Prognose</div>
   <div class="ladder" id="ladder"></div>
 
-  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>HR Plan</b> = Soll + aktueller Vorsprung/Rückstand · <b>HR Ist</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie HR Plan). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte: Matten mit zurückgelegter Distanz beschriftet (bei 2 Runden „1. Rd / 2. Rd km"), bereits passierte Punkte rot; der pulsierende Punkt ist Patricks aktuelle Position (HR Ist), der graue die Soll-Position.</div>
+  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>Soll (Plan)</b> = Soll + aktueller Vorsprung/Rückstand · <b>Soll (KI)</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie Soll (Plan)). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte: Matten mit zurückgelegter Distanz beschriftet (bei 2 Runden „1. Rd / 2. Rd km"), bereits passierte Punkte rot; der pulsierende Punkt ist die aktuelle Position (Soll KI), der graue die Soll-Position.</div>
 
   <div class="foot">
     Tippe einen Messpunkt für eine manuelle Ist-Zeit an (überschreibt die Live-Zeit).
@@ -506,9 +508,11 @@ function render(){
   let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
 
-  // prominenter ETA-Block (Hochrechnung HR Ist bis ins Ziel)
-  $('etaClock').textContent=clockFromStart(T.FINISH.hrIst);
-  $('etaTotal').textContent=hms(T.FINISH.hrIst);
+  // prominenter ETA-Block: Soll (Plan) und Soll (KI), je Ziel-Uhrzeit + hochgerechnete Gesamtzeit
+  $('etaClockPlan').textContent=clockFromStart(T.FINISH.hrPlan);
+  $('etaTotalPlan').textContent=hms(T.FINISH.hrPlan);
+  $('etaClockKi').textContent=clockFromStart(T.FINISH.hrIst);
+  $('etaTotalKi').textContent=hms(T.FINISH.hrIst);
 
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
@@ -541,8 +545,8 @@ function render(){
       </div>
       <div class="cols">
         ${cell('Soll','plan','plan')}
-        ${cell('HR · Plan','hrp','hrPlan')}
-        ${cell('HR · Ist','hri','hrIst')}
+        ${cell('Soll (Plan)','hrp','hrPlan')}
+        ${cell('Soll (KI)','hri','hrIst')}
       </div>`;
     div.addEventListener('click',()=>openSheet(x));
     L.appendChild(div);
