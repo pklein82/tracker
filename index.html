@@ -584,7 +584,7 @@ function render(){
       if(col!=='plan' && T[x.id].reached && x.id!=='START'){ const d=Math.round(v-T[x.id].plan); const c2=d===0?'even':(d<0?'ahead':'behind'); const s=d===0?'':(d<0?'−':'+'); delta=`<span class="delta ${c2}">${s}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
-        <div class="ct num">${clockFromStart(v)}</div>
+        ${col!=='plan'?`<div class="ct num">${clockFromStart(v)}</div>`:''}
         <div class="cd">${delta}</div>
         <div class="cv num">Σ ${hms(v)}</div>
         <div class="cv num">${dIcon} ${hms(v-ref)}</div>
