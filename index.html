@@ -127,6 +127,9 @@
   #map{height:60vh;min-height:340px;width:100vw;position:relative;left:50%;margin-left:-50vw;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface2);margin-top:4px;z-index:0}
   .leaflet-container{background:#0c1b22;font-family:'Inter',sans-serif}
   .maptip{font-family:'Oswald';font-weight:600;font-size:12px}
+  /* permanente Matten-Beschriftung (zurückgelegte Distanz) */
+  .leaflet-tooltip.matlbl{background:rgba(10,20,24,.82);color:#EAF4F4;border:none;box-shadow:none;font-family:'Oswald';font-weight:600;font-size:10px;letter-spacing:.02em;padding:1px 5px;border-radius:5px;white-space:nowrap}
+  .leaflet-tooltip.matlbl::before{display:none}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
     background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 11px;cursor:pointer;user-select:none}
@@ -203,7 +206,7 @@
   <div class="sec-title">Zeitmessungspunkte · Soll · Ist · Prognose</div>
   <div class="ladder" id="ladder"></div>
 
-  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>HR Plan</b> = Soll + aktueller Vorsprung/Rückstand · <b>HR Ist</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie HR Plan). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte zeigt der pulsierende Punkt Patricks aktuelle Position (HR Ist), der graue die Soll-Position.</div>
+  <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>HR Plan</b> = Soll + aktueller Vorsprung/Rückstand · <b>HR Ist</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie HR Plan). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte: Matten mit zurückgelegter Distanz beschriftet (bei 2 Runden „1. Rd / 2. Rd km"), bereits passierte Punkte rot; der pulsierende Punkt ist Patricks aktuelle Position (HR Ist), der graue die Soll-Position.</div>
 
   <div class="foot">
     Tippe einen Messpunkt für eine manuelle Ist-Zeit an (überschreibt die Live-Zeit).
@@ -643,20 +646,27 @@ function initMap(){
   layers.bike=L.layerGroup([L.polyline(bikeLine,{color:getVar('--bike'),weight:4,opacity:.85})]).addTo(MAP);
   layers.run =L.layerGroup([L.polyline(runLine,{color:getVar('--run'),weight:4,opacity:.85})]).addTo(MAP);
 
-  // Offizielle Zeitmessmatten (RTRT 2025) als Marker – toggeln mit der jeweiligen Disziplin
+  // Matten-Beschriftung: zurückgelegte Distanz. Bei 2 Runden nur die 1. Runde mit "km1 / km2".
   const DCOL={swim:getVar('--swim'),bike:getVar('--bike'),run:getVar('--run'),finish:getVar('--finish')};
   const SEG2LAYER={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'run'};
+  const kmNum=p=>{ const mt=String(p.l).match(/([\d.,]+)\s*km/); return mt?mt[1]:''; };
+  const bikePts=RACE_POINTS.filter(p=>p.seg==='bike');
+  const runPts=RACE_POINTS.filter(p=>p.seg==='run');
+  const matLabel={START:'Start', SWIM:'3,8 km', T1:'T1', T2:'T2', FINISH:'Ziel'};
+  // Rad: 7 Punkte je Runde, paarweise nach Reihenfolge -> "1. Rd / 2. Rd"
+  bikePts.slice(0,7).forEach((p,k)=>{ const p2=bikePts.slice(7)[k]; matLabel[p.n]=kmNum(p)+(p2?' / '+kmNum(p2):'')+' km'; });
+  // Lauf: 1. Runde = bis ~21,1 km, gepaart mit 2. Runde
+  const runLap1=runPts.filter(p=>p.km-KM.t2<=21.1+0.5), runLap2=runPts.filter(p=>p.km-KM.t2>21.1+0.5);
+  runLap1.forEach((p,k)=>{ const p2=runLap2[k]; matLabel[p.n]=kmNum(p)+(p2?' / '+kmNum(p2):'')+' km'; });
+
   RACE_POINTS.forEach(p=>{
     if(!p.c) return;
     const disc=SEG2DISC[p.seg]||'bike', grp=SEG2LAYER[p.seg]||'bike';
     const m=L.circleMarker(p.c,{radius:p.b?6:4,color:'#0A1418',weight:1.5,fillColor:DCOL[disc]||'#fff',fillOpacity:.95});
-    m.bindTooltip(p.l+' · Soll '+clockFromStart(planMinAtKm(p.km)),{className:'maptip',direction:'top'});
+    if(matLabel[p.n]) m.bindTooltip(matLabel[p.n],{permanent:true,direction:'top',className:'matlbl',offset:[0,-3]});
     pointMarkers[p.n]=m;
     layers[grp].addLayer(m);
   });
-
-  mk(ROUTES.swim[0],'🏁 Start · Schwimmen');
-  mk(ROUTES.run[ROUTES.run.length-1],'🏁 Ziel · Metnitzstrand');
 
   const bounds=L.latLngBounds([].concat(ROUTES.swim,ROUTES.bike,ROUTES.run));
   MAP.fitBounds(bounds,{padding:[24,24]});
@@ -665,16 +675,13 @@ function initMap(){
   window.addEventListener('resize',()=>{ if(MAP){ MAP.invalidateSize(); MAP.fitBounds(bounds,{padding:[24,24]}); } });
   updateMapTimes(computeTimes(buildMilestones()));
 }
-// Marker-Tooltips auf Ist / HR-Ist umstellen, sobald Live-Daten da sind (sonst Soll)
+// Passierte Durchgangspunkte rot färben (Distanz-Beschriftung bleibt)
 function updateMapTimes(T){
   if(!MAP||!T) return;
-  const live = T._base!=null;
   RACE_POINTS.forEach(p=>{
     const m=pointMarkers[p.n], r=T[p.n]; if(!m||!r) return;
-    const lab = r.reached?'Ist':(live?'HR':'Soll');
-    const clock = clockFromStart(live?r.hrIst:r.plan);
-    m.setTooltipContent(p.l+' · '+lab+' '+clock);
-    if(r.reached){ m.setStyle({color:'#EAF4F4',weight:2,fillOpacity:1}); m.setRadius(p.b?7:5); }
+    if(r.reached){ m.setStyle({fillColor:'#FF3B30',color:'#fff',weight:2,fillOpacity:1}); m.setRadius(p.b?7:5); }
+    else { m.setStyle({fillColor:getVar('--'+(SEG2DISC[p.seg]||'bike')),color:'#0A1418',weight:1.5,fillOpacity:.95}); m.setRadius(p.b?6:4); }
   });
 }
 // Aktuelle Position auf der Strecke (per Spalte) – zwischen den Matten nach Zeit interpoliert
