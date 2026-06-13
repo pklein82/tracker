@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Race Tracker · Patrick · Ironman Austria 2026</title>
+<title>Race Tracker · Ironman Austria 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -42,6 +42,10 @@
   h1 .who{color:var(--swim)}
   .meta{font-size:12.5px;color:var(--muted);margin-top:6px}
   .meta b{color:var(--text);font-weight:600}
+  .athletes{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+  .ath{font-family:'Oswald';font-weight:600;font-size:12.5px;letter-spacing:.02em;padding:7px 13px;border-radius:999px;
+    background:var(--surface);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+  .ath.on{background:var(--swim);border-color:var(--swim);color:#04181a}
 
   /* LIVE STATUS */
   .status{
@@ -175,6 +179,8 @@
     <h1>Race Tracker<br><span class="who" id="who">Patrick</span></h1>
     <div class="meta">So. <b>14.06.2026</b> · Start <b id="startMeta">06:35</b> · Ziel-Soll <b id="finishMeta">16:31</b> · Sollzeit <b id="goalMeta">9:56</b></div>
 
+    <div class="athletes" id="athletes"></div>
+
     <div class="status">
       <div class="top">
         <div class="clock num" id="clock">--:--<small id="clockSub">jetzt</small></div>
@@ -228,7 +234,7 @@
 </div>
 
 <script>
-const STORE_KEY = 'ironman_austria_patrick_v4';
+const STORE_KEY = 'ironman_austria_v5';
 const RACE_DATE = {y:2026, mo:5, d:14}; // Monat 0-basiert -> Juni = 5
 
 // Offizielle Zeitmessmatten IM Austria (km + Koordinaten aus RTRT IRM-AUSTRIA-2026,
@@ -277,13 +283,22 @@ const KM={swimEnd:3.81, t1:4.47, bikeEnd:184.322, t2:184.57, finish:226.922};
 // (Reihenfolge entspricht den Rad-Punkten; Dauern zwischen den Punkten = nicht-lineares Pacing.)
 const BIKE_PLAN_MIN={BIKE1:33+53/60,BIKE2:48+49/60,BIKE3:53+47/60,BIKE4:71+24/60,BIKE5:83+1/60,BIKE6:117+17/60,BIKE8:147+10/60,BIKE9:182+10/60,BIKE11:197+42/60,BIKE10:202+58/60,BIKE12:221+26/60,BIKE13:234+26/60,BIKE14:269+24/60,BIKE:298+35/60};
 
+// Athleten mit Plan (Minuten) + Live-PID. Rad-Profil wird auf die jeweilige Rad-Zeit skaliert.
+const ATHLETES={
+  patrick:{name:'Patrick',            start:'06:35', pid:'RD8XEHJF', dur:{swim:74,t1:7,bike:298+35/60,t2:5,run:210}},
+  kurt:   {name:'Kurt Lichtkoppler',  start:'06:35', pid:'',         dur:{swim:64,t1:5,bike:298+25/60,t2:3,run:190}},
+  georg:  {name:'Georg Frad',         start:'06:35', pid:'',         dur:{swim:64,t1:5,bike:298+25/60,t2:3,run:200}},
+};
+
 // ---- State ----
 let state = {
+  athlete:'patrick',
   name:'Patrick',
   start:'06:35',
-  dur:{swim:74, t1:7, bike:298+35/60, t2:5, run:210}, // Minuten (Rad = 4:58:35)
-  actuals:{},      // id -> "HH:MM"  (manuell, hat Vorrang)
-  live:{ url:'https://tracker.paul-kleinrath.workers.dev', event:'IRM-AUSTRIA-2026', bib:'RD8XEHJF', on:true }, // RTRT.me-Abruf (PID Patrick)
+  dur:{swim:74, t1:7, bike:298+35/60, t2:5, run:210}, // von applyAthlete gesetzt
+  actuals:{},          // id -> "HH:MM"  (manuell, hat Vorrang) – Referenz auf actualsByAthlete[athlete]
+  actualsByAthlete:{}, // athlete -> {id:"HH:MM"}
+  live:{ url:'https://tracker.paul-kleinrath.workers.dev', event:'IRM-AUSTRIA-2026', bib:'RD8XEHJF', on:true },
   liveActuals:{},  // id -> "HH:MM" (automatisch gemappt)
   liveSplits:[]    // letzter Roh-Snapshot {label,tod,net}
 };
@@ -305,13 +320,37 @@ function startDate(){
 function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function totalMin(){ const d=state.dur; return d.swim+d.t1+d.bike+d.t2+d.run; }
 
+// ---- Athleten ----
+function applyAthlete(key, clearLive){
+  if(!ATHLETES[key]) key='patrick';
+  state.athlete=key;
+  const a=ATHLETES[key];
+  state.name=a.name; state.start=a.start;
+  state.dur={...a.dur};
+  state.live.bib=a.pid||'';
+  if(!state.actualsByAthlete[key]) state.actualsByAthlete[key]={};
+  state.actuals=state.actualsByAthlete[key];
+  if(clearLive){ state.liveActuals={}; state.liveSplits=[]; }
+}
+async function selectAthlete(key){
+  if(key===state.athlete) return;
+  applyAthlete(key, true);
+  await save();
+  renderAthletes(); render(); startPoll();
+}
+function renderAthletes(){
+  const box=document.getElementById('athletes'); if(!box) return;
+  box.innerHTML=Object.keys(ATHLETES).map(k=>`<button class="ath${k===state.athlete?' on':''}" data-k="${k}">${ATHLETES[k].name}</button>`).join('');
+}
+
+
 // Soll-Stützpunkte (km, Minuten ab Start): Schwimmen/Wechsel/Lauf linear, Rad nach Referenzprofil.
 function planBreakpoints(){
   const d=state.dur, off=d.swim+d.t1, bp=[[0,0],[KM.swimEnd,d.swim],[KM.t1,off]];
-  RACE_POINTS.forEach(p=>{ if(p.seg==='bike') bp.push([p.km, off+BIKE_PLAN_MIN[p.n]]); });
-  const bikeTot=BIKE_PLAN_MIN.BIKE;
-  bp.push([KM.t2, off+bikeTot+d.t2]);
-  bp.push([KM.finish, off+bikeTot+d.t2+d.run]);
+  const scale=d.bike/BIKE_PLAN_MIN.BIKE; // Rad-Profil auf die Rad-Zeit des Athleten skalieren
+  RACE_POINTS.forEach(p=>{ if(p.seg==='bike') bp.push([p.km, off+BIKE_PLAN_MIN[p.n]*scale]); });
+  bp.push([KM.t2, off+d.bike+d.t2]);
+  bp.push([KM.finish, off+d.bike+d.t2+d.run]);
   return bp;
 }
 function planMinAtKm(km){
@@ -417,12 +456,12 @@ async function load(){
   try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(STORE_KEY); if(r&&r.value) s=JSON.parse(r.value); } }catch(e){}
   if(!s){ try{ const t=localStorage.getItem(STORE_KEY); if(t) s=JSON.parse(t); }catch(e){} }
   if(s){ state=Object.assign(state,s);
-    state.dur={swim:74,t1:7,bike:298+35/60,t2:5,run:210}; // fester Plan (Rad 4:58:35)
-    state.actuals=s.actuals||{};
+    state.actualsByAthlete=s.actualsByAthlete||{};
     state.live=Object.assign({url:'https://tracker.paul-kleinrath.workers.dev',event:'IRM-AUSTRIA-2026',bib:'RD8XEHJF',on:true},s.live||{});
     state.liveActuals=s.liveActuals||{};
     state.liveSplits=s.liveSplits||[];
   }
+  applyAthlete(state.athlete||'patrick', false); // Plan/Name/Start/Bib des Athleten setzen (Live behalten)
 }
 
 // ---- Render ----
@@ -715,9 +754,15 @@ document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   });
 });
 
+// Athleten-Auswahl
+document.getElementById('athletes').addEventListener('click',e=>{
+  const b=e.target.closest('.ath'); if(b) selectAthlete(b.dataset.k);
+});
+
 // ---- Boot ----
 (async function(){
   await load();
+  renderAthletes();
   render();
   initMap();
   startPoll();
