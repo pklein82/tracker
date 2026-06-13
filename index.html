@@ -25,6 +25,7 @@
     --bike:#B388FF;
     --run:#3E8EF7;
     --finish:#FFD23F;
+    --live:#FF3B30;
     --ahead:#37D67A;
     --behind:#FF6B6B;
   }
@@ -42,13 +43,13 @@
   }
   .eyebrow{font-family:'Oswald';font-weight:500;letter-spacing:.28em;text-transform:uppercase;font-size:11px;color:var(--swim)}
   h1{font-family:'Oswald';font-weight:700;font-size:34px;line-height:.98;letter-spacing:.01em;margin:4px 0 2px}
-  h1 .who{color:var(--swim)}
+  h1 .who{background:var(--live);color:#fff;padding:0 8px;border-radius:8px;display:inline-block}
   .meta{font-size:12.5px;color:var(--muted);margin-top:6px}
   .meta b{color:var(--text);font-weight:600}
   .athletes{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
   .ath{font-family:'Oswald';font-weight:600;font-size:12.5px;letter-spacing:.02em;padding:7px 13px;border-radius:999px;
     background:var(--surface);border:1px solid var(--line);color:var(--muted);cursor:pointer}
-  .ath.on{background:var(--swim);border-color:var(--swim);color:#04181a}
+  .ath.on{background:var(--live);border-color:var(--live);color:#fff}
 
   /* LIVE STATUS */
   .status{
@@ -564,7 +565,7 @@ function render(){
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
     const fromLive = !state.actuals[x.id] && !!state.liveActuals[x.id];
-    const isTarget = i===targetIdx && elapsed>=0 && elapsed<tot;
+    const isTarget = i===targetIdx && elapsed<tot; // vor dem Start ist das der Schwimmstart
     const prev = i>0?ms[i-1]:null;
     const isTrans = x.seg==='t1'||x.seg==='t2';
     const dist = prev? x.km-prev.km : 0;
@@ -648,7 +649,8 @@ function renderStatus(ms,elapsed,tot){
   if(seg.n==='Schwimmen') extra=` · ~${(3.8*segPct/100).toFixed(1)} km`;
   else if(seg.n==='Radfahren') extra=` · ~${Math.round(180*segPct/100)} km`;
   else if(seg.n==='Laufen') extra=` · ~${(42.2*segPct/100).toFixed(1)} km`;
-  line.innerHTML=`Sollte gerade <b>${seg.n.toLowerCase()}</b>${extra} · ${segPct}% des Abschnitts · gesamt ${overallPct}%`;
+  const VERB={'Schwimmen':'Schwimmt','Radfahren':'Fährt Rad','Laufen':'Läuft','Wechsel T1':'Wechselzone T1','Wechsel T2':'Wechselzone T2'};
+  line.innerHTML=`<b>${VERB[seg.n]||seg.n}</b>${extra} · ${segPct}% des Abschnitts · gesamt ${overallPct}%`;
   fill.style.width=overallPct+'%'; fill.style.background=COL[seg.disc];
 }
 
