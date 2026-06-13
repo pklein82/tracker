@@ -344,13 +344,19 @@ function renderAthletes(){
 }
 
 
-// Soll-Stützpunkte (km, Minuten ab Start): Schwimmen/Wechsel/Lauf linear, Rad nach Referenzprofil.
+// Lauf-Pacing: Positiv-Split („eingehen") – Tempo steigt linear über die Distanz,
+// Lauf-Gesamtzeit bleibt gleich. runFrac(d)=Anteil der Laufzeit nach Distanzanteil d (0..1).
+const RUN_FADE=0.30; // 0 = gleichmäßig; höher = stärkeres Einbrechen am Ende
+function runFrac(d){ return d + (RUN_FADE/2)*(d*d - d); }
+// Soll-Stützpunkte (km, Minuten ab Start): Schwimmen/Wechsel linear, Rad nach Profil, Lauf mit Fade.
 function planBreakpoints(){
   const d=state.dur, off=d.swim+d.t1, bp=[[0,0],[KM.swimEnd,d.swim],[KM.t1,off]];
   const scale=d.bike/BIKE_PLAN_MIN.BIKE; // Rad-Profil auf die Rad-Zeit des Athleten skalieren
   RACE_POINTS.forEach(p=>{ if(p.seg==='bike') bp.push([p.km, off+BIKE_PLAN_MIN[p.n]*scale]); });
-  bp.push([KM.t2, off+d.bike+d.t2]);
-  bp.push([KM.finish, off+d.bike+d.t2+d.run]);
+  const runStart=off+d.bike+d.t2, runDist=KM.finish-KM.t2;
+  bp.push([KM.t2, runStart]);
+  RACE_POINTS.forEach(p=>{ if(p.seg==='run') bp.push([p.km, runStart + runFrac((p.km-KM.t2)/runDist)*d.run]); });
+  bp.push([KM.finish, runStart+d.run]);
   return bp;
 }
 function planMinAtKm(km){
