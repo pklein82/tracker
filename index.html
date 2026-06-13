@@ -105,6 +105,8 @@
   .ch{font-family:'Oswald';font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
   .ct{font-family:'Oswald';letter-spacing:.02em;line-height:1;margin-bottom:3px}
   .cv{font-size:9px;color:var(--muted);margin-top:1.5px;letter-spacing:.01em;line-height:1.25}
+  .cd{font-family:'Oswald';font-weight:700;font-size:11px;line-height:1;margin:1px 0 3px;min-height:11px}
+  .delta.ahead{color:var(--ahead)} .delta.behind{color:var(--behind)}
   /* Plan am schwächsten */
   .col.plan{opacity:.6}
   .col.plan .ct{font-weight:500;font-size:14px;color:var(--muted)}
@@ -427,7 +429,7 @@ function pointSub(p){
 function buildMilestones(){
   return RACE_POINTS.map(p=>({
     id:p.n, label:p.l, sub:pointSub(p),
-    disc:SEG2DISC[p.seg]||'bike', seg:p.seg, km:p.km,
+    disc:SEG2DISC[p.seg]||'bike', seg:p.seg, km:p.km, c:p.c,
     kind:p.b?'off':'lap',
     t:planMinAtKm(p.km)
   }));
@@ -564,9 +566,13 @@ function render(){
       const v=T[x.id][col];
       const ref=T[DSTART[x.seg]]?T[DSTART[x.seg]][col]:0;
       const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
+      // Abweichung zum ursprünglichen Plan (Soll), nur in den Hochrechnungs-Spalten
+      let delta='&nbsp;';
+      if(col!=='plan'){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
         <div class="ct num">${clockFromStart(v)}</div>
+        <div class="cd">${delta}</div>
         <div class="cv num">Σ ${hms(v)}</div>
         <div class="cv num">${dIcon} ${hms(v-ref)}</div>
         <div class="cv num">${sp||'&nbsp;'}</div>
@@ -586,7 +592,7 @@ function render(){
         ${cell('Soll (Plan)','hrp','hrPlan')}
         ${cell('Soll (KI)','hri','hrIst')}
       </div>`;
-    div.addEventListener('click',()=>openSheet(x));
+    div.addEventListener('click',()=>focusOnPoint(x));
     L.appendChild(div);
   });
 
@@ -820,17 +826,21 @@ function courseCoordAt(col,T){
   }
   return pts[pts.length-1].c;
 }
-let posMarkers={plan:null,ist:null};
+let posMarkers={ist:null};
 function updatePosition(T){
   if(!MAP) return;
-  ['plan','ist'].forEach(k=>{ if(posMarkers[k]){ MAP.removeLayer(posMarkers[k]); posMarkers[k]=null; } });
+  if(posMarkers.ist){ MAP.removeLayer(posMarkers.ist); posMarkers.ist=null; }
   const now=elapsedMin();
   if(now<0 || now>T.FINISH.hrIst+3) return; // nur während des Rennens
-  const pPlan=courseCoordAt('hrPlan',T), pIst=courseCoordAt('hrIst',T);
-  posMarkers.plan=L.circleMarker(pPlan,{radius:7,color:'#fff',weight:2,fillColor:getVar('--muted'),fillOpacity:.85})
-    .addTo(MAP).bindTooltip('Soll-Position jetzt',{className:'maptip',direction:'top'});
-  posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:getVar('--swim'),fillOpacity:1,className:'livepos'})
-    .addTo(MAP).bindTooltip('Patrick · jetzt (HR Ist)',{className:'maptip',direction:'top'});
+  const pIst=courseCoordAt('hrIst',T);
+  posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
+    .addTo(MAP).bindTooltip((state.name||'Athlet')+' · aktuelle Position',{className:'maptip',direction:'top'});
+}
+// Klick auf eine Matte: Karte dorthin zoomen und in den Blick scrollen
+function focusOnPoint(x){
+  if(!MAP||!x.c) return;
+  MAP.setView(x.c, 14, {animate:true});
+  const box=document.getElementById('map'); if(box) box.scrollIntoView({behavior:'smooth',block:'start'});
 }
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   ch.addEventListener('click',()=>{
