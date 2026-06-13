@@ -820,6 +820,8 @@ function courseCoordAt(col,T){
   for(let i=1;i<pts.length;i++){
     const A=pts[i-1], B=pts[i], ta=T[A.n][col], tb=T[B.n][col];
     if(now<=tb){
+      // In der Wechselzone (T1/T2) nicht interpolieren – fix auf die Wechselzonen-Matte
+      if(B.seg==='t1'||B.seg==='t2') return B.c;
       const f=tb>ta?(now-ta)/(tb-ta):0;
       const line=ROUTES[ROUTE_DISC[B.seg]]||ROUTES.bike;
       const c=subPathCoord(line, nearestIdx(line,A.c), nearestIdx(line,B.c), f);
