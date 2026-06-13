@@ -194,8 +194,8 @@
         <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
       </div>
       <div class="eta">
-        <div class="etac pl"><div class="etak">Soll (Plan) · Ziel</div><div class="etav num" id="etaClockPlan">—</div><div class="etas num" id="etaTotalPlan">—</div></div>
-        <div class="etac ki"><div class="etak">Soll (KI) · Ziel</div><div class="etav num" id="etaClockKi">—</div><div class="etas num" id="etaTotalKi">—</div></div>
+        <div class="etac pl"><div class="etak">Soll (Plan)</div><div class="etav num" id="etaTotalPlan">—</div><div class="etas num" id="etaClockPlan">—</div></div>
+        <div class="etac ki"><div class="etak">Soll (KI)</div><div class="etav num" id="etaTotalKi">—</div><div class="etas num" id="etaClockKi">—</div></div>
       </div>
       <div class="statusline" id="statusline">—</div>
       <div class="bar"><i id="barfill" style="background:var(--swim)"></i></div>
@@ -508,11 +508,11 @@ function render(){
   let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
 
-  // prominenter ETA-Block: Soll (Plan) und Soll (KI), je Ziel-Uhrzeit + hochgerechnete Gesamtzeit
-  $('etaClockPlan').textContent=clockFromStart(T.FINISH.hrPlan);
+  // prominenter ETA-Block: Rennzeit groß, Ziel-Uhrzeit klein – für Soll (Plan) und Soll (KI)
   $('etaTotalPlan').textContent=hms(T.FINISH.hrPlan);
-  $('etaClockKi').textContent=clockFromStart(T.FINISH.hrIst);
+  $('etaClockPlan').textContent='Ziel '+clockFromStart(T.FINISH.hrPlan);
   $('etaTotalKi').textContent=hms(T.FINISH.hrIst);
+  $('etaClockKi').textContent='Ziel '+clockFromStart(T.FINISH.hrIst);
 
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
