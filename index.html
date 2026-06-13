@@ -790,13 +790,15 @@ function initMap(){
   window.addEventListener('resize',()=>{ if(MAP){ MAP.invalidateSize(); MAP.fitBounds(bounds,{padding:[24,24]}); } });
   updateMapTimes(computeTimes(buildMilestones()));
 }
-// Passierte Durchgangspunkte rot färben (Distanz-Beschriftung bleibt)
+// Passierte Durchgangspunkte rot färben (Distanz-Beschriftung bleibt); ausgewählte Matte markieren
+let selectedMat=null;
 function updateMapTimes(T){
   if(!MAP||!T) return;
   RACE_POINTS.forEach(p=>{
     const m=pointMarkers[p.n], r=T[p.n]; if(!m||!r) return;
     if(r.reached){ m.setStyle({fillColor:'#FF3B30',color:'#fff',weight:2,fillOpacity:1}); m.setRadius(p.b?7:5); }
     else { m.setStyle({fillColor:getVar('--'+(SEG2DISC[p.seg]||'bike')),color:'#0A1418',weight:1.5,fillOpacity:.95}); m.setRadius(p.b?6:4); }
+    if(p.n===selectedMat){ m.setStyle({color:'#FFD23F',weight:4,fillOpacity:1}); m.setRadius((p.b?7:5)+4); m.bringToFront(); }
   });
 }
 // Aktuelle Position – ENTLANG der gezeichneten Streckenlinie zwischen den beiden Matten
@@ -839,6 +841,8 @@ function updatePosition(T){
 // Klick auf eine Matte: so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
 function focusOnPoint(x){
   if(!MAP||!x.c) return;
+  selectedMat=x.id;
+  updateMapTimes(computeTimes(buildMilestones())); // Markierung sofort anwenden
   const i=RACE_POINTS.findIndex(p=>p.n===x.id), cs=[];
   if(i>0 && RACE_POINTS[i-1].c) cs.push(RACE_POINTS[i-1].c);
   cs.push(x.c);
