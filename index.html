@@ -876,8 +876,11 @@ function markAndZoom(x){
 }
 // Klick auf eine Matte (Ladder): markieren/zoomen + Karte in den Blick scrollen
 function focusOnPoint(x){ markAndZoom(x); const b=document.getElementById('map'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }
-// Klick auf Athlet: markieren/zoomen + zur zugehörigen Matte-Zeile scrollen
-function focusOnField(x){ markAndZoom(x); const r=document.querySelector('.rung[data-id="'+x.id+'"]'); if(r) r.scrollIntoView({behavior:'smooth',block:'center'}); }
+// Klick auf Athlet: markieren/zoomen + zur zugehörigen Matte-Zeile scrollen (an den oberen Rand)
+function focusOnField(x){
+  markAndZoom(x);
+  requestAnimationFrame(()=>{ const r=document.querySelector('.rung[data-id="'+x.id+'"]'); if(r) r.scrollIntoView({behavior:'smooth',block:'start'}); });
+}
 document.querySelectorAll('.chip[data-layer]').forEach(ch=>{
   ch.addEventListener('click',()=>{
     const k=ch.dataset.layer; if(!MAP||!layers[k]) return;
