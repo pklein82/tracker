@@ -56,6 +56,11 @@
   .clock{font-family:'Oswald';font-weight:600;font-size:30px;letter-spacing:.02em}
   .clock small{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
   .phase{font-family:'Oswald';text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px}
+  .eta{display:flex;gap:10px;padding:6px 16px 12px}
+  .eta>div{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:8px 11px}
+  .etak{font-family:'Oswald';font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .etav{font-family:'Oswald';font-weight:700;font-size:25px;letter-spacing:.01em;margin-top:2px;line-height:1}
+  .eta>div:last-child .etav{color:var(--swim)}
   .statusline{padding:0 16px 14px;font-size:14px;color:var(--text)}
   .statusline span{color:var(--muted)}
   .bar{height:6px;background:var(--surface2);border-radius:99px;margin:0 16px 16px;overflow:hidden}
@@ -186,6 +191,10 @@
         <div class="clock num" id="clock">--:--<small id="clockSub">jetzt</small></div>
         <div class="phase" id="phase" style="background:#16303B;color:#7C98A1">—</div>
       </div>
+      <div class="eta">
+        <div><div class="etak">ETA Ziel (Uhrzeit)</div><div class="etav num" id="etaClock">—</div></div>
+        <div><div class="etak">Hochger. Gesamtzeit</div><div class="etav num" id="etaTotal">—</div></div>
+      </div>
       <div class="statusline" id="statusline">—</div>
       <div class="bar"><i id="barfill" style="background:var(--swim)"></i></div>
     </div>
@@ -282,11 +291,13 @@ const KM={swimEnd:3.81, t1:4.47, bikeEnd:184.322, t2:184.57, finish:226.922};
 // Geplante Rad-Splits: kumulierte Rad-Zeit (min) je Rad-Punkt – Referenzprofil, Rad gesamt 4:58:35.
 // (Reihenfolge entspricht den Rad-Punkten; Dauern zwischen den Punkten = nicht-lineares Pacing.)
 const BIKE_PLAN_MIN={BIKE1:33+53/60,BIKE2:48+49/60,BIKE3:53+47/60,BIKE4:71+24/60,BIKE5:83+1/60,BIKE6:117+17/60,BIKE8:147+10/60,BIKE9:182+10/60,BIKE11:197+42/60,BIKE10:202+58/60,BIKE12:221+26/60,BIKE13:234+26/60,BIKE14:269+24/60,BIKE:298+35/60};
+// Kurts eigenes Rad-Profil (Referenz, Rad gesamt 5:10:47)
+const BIKE_PLAN_KURT={BIKE1:34+3/60,BIKE2:49+13/60,BIKE3:54+6/60,BIKE4:73+11/60,BIKE5:85+32/60,BIKE6:121+7/60,BIKE8:150+28/60,BIKE9:185+45/60,BIKE11:201+42/60,BIKE10:207+20/60,BIKE12:226+7/60,BIKE13:239+31/60,BIKE14:277+46/60,BIKE:310+47/60};
 
-// Athleten mit Plan (Minuten) + Live-PID. Rad-Profil wird auf die jeweilige Rad-Zeit skaliert.
+// Athleten mit Plan (Minuten) + Live-PID. Rad: eigenes Profil (bikePlan) oder skaliertes Standardprofil.
 const ATHLETES={
   patrick:{name:'Patrick',            start:'06:35', pid:'RD8XEHJF', dur:{swim:74,t1:7,bike:298+35/60,t2:5,run:210}},
-  kurt:   {name:'Kurt Lichtkoppler',  start:'06:35', pid:'',         dur:{swim:64,t1:5,bike:298+25/60,t2:3,run:190}},
+  kurt:   {name:'Kurt Lichtkoppler',  start:'06:35', pid:'',         dur:{swim:64,t1:5,bike:310+47/60,t2:3,run:190}, bikePlan:BIKE_PLAN_KURT},
   georg:  {name:'Georg Frad',         start:'06:35', pid:'',         dur:{swim:64,t1:5,bike:298+25/60,t2:3,run:200}},
 };
 
@@ -348,11 +359,17 @@ function renderAthletes(){
 // Lauf-Gesamtzeit bleibt gleich. runFrac(d)=Anteil der Laufzeit nach Distanzanteil d (0..1).
 const RUN_FADE=0.20; // 0 = gleichmäßig; höher = stärkeres Einbrechen am Ende
 function runFrac(d){ return d + (RUN_FADE/2)*(d*d - d); }
+// Rad-Profil des aktuellen Athleten: eigenes bikePlan (scale 1) oder Standardprofil skaliert.
+function curBikePlan(){
+  const a=ATHLETES[state.athlete];
+  if(a&&a.bikePlan) return {plan:a.bikePlan, scale:1};
+  return {plan:BIKE_PLAN_MIN, scale:state.dur.bike/BIKE_PLAN_MIN.BIKE};
+}
 // Soll-Stützpunkte (km, Minuten ab Start): Schwimmen/Wechsel linear, Rad nach Profil, Lauf mit Fade.
 function planBreakpoints(){
   const d=state.dur, off=d.swim+d.t1, bp=[[0,0],[KM.swimEnd,d.swim],[KM.t1,off]];
-  const scale=d.bike/BIKE_PLAN_MIN.BIKE; // Rad-Profil auf die Rad-Zeit des Athleten skalieren
-  RACE_POINTS.forEach(p=>{ if(p.seg==='bike') bp.push([p.km, off+BIKE_PLAN_MIN[p.n]*scale]); });
+  const bk=curBikePlan();
+  RACE_POINTS.forEach(p=>{ if(p.seg==='bike') bp.push([p.km, off+bk.plan[p.n]*bk.scale]); });
   const runStart=off+d.bike+d.t2, runDist=KM.finish-KM.t2;
   bp.push([KM.t2, runStart]);
   RACE_POINTS.forEach(p=>{ if(p.seg==='run') bp.push([p.km, runStart + runFrac((p.km-KM.t2)/runDist)*d.run]); });
@@ -488,6 +505,10 @@ function render(){
   const L=$('ladder'); L.innerHTML='';
   let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
+
+  // prominenter ETA-Block (Hochrechnung HR Ist bis ins Ziel)
+  $('etaClock').textContent=clockFromStart(T.FINISH.hrIst);
+  $('etaTotal').textContent=hms(T.FINISH.hrIst);
 
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
