@@ -110,7 +110,7 @@
   .ct{font-family:'Oswald';letter-spacing:.02em;line-height:1;margin-bottom:3px}
   .cv{font-size:9px;color:var(--muted);margin-top:1.5px;letter-spacing:.01em;line-height:1.25}
   .cd{font-family:'Oswald';font-weight:700;font-size:11px;line-height:1;margin:1px 0 3px;min-height:11px}
-  .delta.ahead{color:var(--ahead)} .delta.behind{color:var(--behind)}
+  .delta.ahead{color:var(--ahead)} .delta.behind{color:var(--behind)} .delta.even{color:var(--finish)}
   /* Plan am schwächsten */
   .col.plan{opacity:.6}
   .col.plan .ct{font-weight:500;font-size:14px;color:var(--muted)}
@@ -385,11 +385,10 @@ function applyAthlete(key, clearLive){
   state.liveActuals=(cache&&cache.actuals)||{};
   state.liveSplits=(cache&&cache.splits)||[];
 }
+function nextMat(){ for(const p of RACE_POINTS){ if(istMinOf(p.n)==null) return {id:p.n,c:p.c}; } const l=RACE_POINTS[RACE_POINTS.length-1]; return {id:l.n,c:l.c}; }
 async function selectAthlete(key){
-  if(key===state.athlete) return;
-  applyAthlete(key, true);
-  await save();
-  renderAthletes(); render(); startPoll();
+  if(key!==state.athlete){ applyAthlete(key,true); await save(); renderAthletes(); render(); startPoll(); }
+  const n=nextMat(); if(n&&n.c) focusOnPoint(n); // Sprung zur aktuell nächsten Matte
 }
 function renderAthletes(){
   const box=document.getElementById('athletes'); if(!box) return;
@@ -576,7 +575,7 @@ function render(){
       const sp=(prev&&!isTrans)? legSpeed(x.seg, v-T[prev.id][col], dist) : '';
       // Abweichung zum ursprünglichen Plan (Soll) – erst sobald es eine Ist-Zeit gibt
       let delta='&nbsp;';
-      if(col!=='plan' && T[x.id].reached && x.id!=='START'){ const d=Math.round(v-T[x.id].plan); const c2=d<=0?'ahead':'behind'; delta=`<span class="delta ${c2}">${d<=0?'−':'+'}${Math.abs(d)} min</span>`; }
+      if(col!=='plan' && T[x.id].reached && x.id!=='START'){ const d=Math.round(v-T[x.id].plan); const c2=d===0?'even':(d<0?'ahead':'behind'); const s=d===0?'':(d<0?'−':'+'); delta=`<span class="delta ${c2}">${s}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
         <div class="ct num">${clockFromStart(v)}</div>
