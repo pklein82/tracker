@@ -389,8 +389,8 @@ function applyAthlete(key, clearLive){
 }
 function nextMat(){ for(const p of RACE_POINTS){ if(istMinOf(p.n)==null) return {id:p.n,c:p.c}; } const l=RACE_POINTS[RACE_POINTS.length-1]; return {id:l.n,c:l.c}; }
 async function selectAthlete(key){
-  if(key!==state.athlete){ applyAthlete(key,true); await save(); renderAthletes(); render(); startPoll(); }
-  const n=nextMat(); if(n&&n.c) focusOnField(n); // Sprung zur aktuell nächsten Matte-Zeile
+  if(key===state.athlete) return;          // Klick auf den Namen oben: nur wechseln, oben bleiben
+  applyAthlete(key,true); await save(); renderAthletes(); render(); startPoll();
 }
 function renderAthletes(){
   const box=document.getElementById('athletes'); if(!box) return;
@@ -863,6 +863,7 @@ function updatePosition(T){
   const pIst=courseCoordAt('hrIst',T);
   posMarkers.ist=L.circleMarker(pIst,{radius:13,color:'#fff',weight:3,fillColor:'#FF3B30',fillOpacity:1,className:'livepos'})
     .addTo(MAP).bindTooltip((state.name||'Athlet')+' · aktuelle Position',{className:'maptip',direction:'top'});
+  posMarkers.ist.on('click',()=>{ const n=nextMat(); if(n&&n.c) focusOnField(n); }); // Klick auf Athleten-Punkt: zur aktuellen Matte/Zeile
 }
 // Matte markieren + Karte so zoomen, dass vorige + diese + nächste Matte im Ausschnitt sind
 function markAndZoom(x){
