@@ -794,6 +794,7 @@ function initMap(){
     const disc=SEG2DISC[p.seg]||'bike', grp=SEG2LAYER[p.seg]||'bike';
     const m=L.circleMarker(p.c,{radius:p.b?6:4,color:'#0A1418',weight:1.5,fillColor:DCOL[disc]||'#fff',fillOpacity:.95});
     if(matLabel[p.n]) m.bindTooltip(matLabel[p.n],{permanent:true,direction:'top',className:'matlbl',offset:[0,-3]});
+    m.on('click',()=>focusOnField({id:p.n,c:p.c})); // Klick auf Matten-Kreis: markieren + zur Zeile springen
     pointMarkers[p.n]=m;
     layers[grp].addLayer(m);
   });
