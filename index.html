@@ -814,42 +814,36 @@ function updateMapTimes(T){
   const sp=selectedMat&&RACE_POINTS.find(p=>p.n===selectedMat);
   if(sp&&sp.c){ selMarker=L.circleMarker(sp.c,{radius:20,color:'#FFD23F',weight:5,fillColor:'#FFD23F',fillOpacity:.2,className:'selhalo'}).addTo(MAP); selMarker.bringToFront(); }
 }
-// Aktuelle Position – ENTLANG der gezeichneten Streckenlinie zwischen den beiden Matten
-const ROUTE_DISC={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'run'};
-function nearestIdx(line,c){ let bi=0,bd=Infinity; for(let i=0;i<line.length;i++){ const dx=line[i][0]-c[0], dy=line[i][1]-c[1], d=dx*dx+dy*dy; if(d<bd){bd=d;bi=i;} } return bi; }
-function subPathCoord(line,iA,iB,f){
-  let idx=[]; if(iB>=iA){ for(let i=iA;i<=iB;i++) idx.push(i); } else { for(let i=iA;i<line.length;i++) idx.push(i); for(let i=0;i<=iB;i++) idx.push(i); }
-  if(idx.length<2) return line[iA];
-  const seg=[]; let tot=0;
-  for(let k=1;k<idx.length;k++){ const a=line[idx[k-1]],b=line[idx[k]]; const dx=b[0]-a[0], dy=(b[1]-a[1])*Math.cos(a[0]*Math.PI/180); const d=Math.hypot(dx,dy); seg.push(d); tot+=d; }
-  let target=tot*Math.max(0,Math.min(1,f)), acc=0;
-  for(let k=0;k<seg.length;k++){ if(acc+seg[k]>=target){ const a=line[idx[k]],b=line[idx[k+1]], ff=seg[k]?(target-acc)/seg[k]:0; return [a[0]+(b[0]-a[0])*ff, a[1]+(b[1]-a[1])*ff]; } acc+=seg[k]; }
-  return line[idx[idx.length-1]];
+// Aktuelle Position ENTLANG der gezeichneten Linie über die bekannte km-Marke (keine Sprünge)
+function coordAtFrac(line,frac){
+  frac=Math.max(0,Math.min(1,frac));
+  let tot=0; const seg=[];
+  for(let i=1;i<line.length;i++){ const a=line[i-1],b=line[i]; seg.push(Math.hypot(b[0]-a[0],(b[1]-a[1])*Math.cos(a[0]*Math.PI/180))); tot+=seg[i-1]; }
+  let target=tot*frac, acc=0;
+  for(let i=0;i<seg.length;i++){ if(acc+seg[i]>=target){ const a=line[i],b=line[i+1], ff=seg[i]?(target-acc)/seg[i]:0; return [a[0]+(b[0]-a[0])*ff, a[1]+(b[1]-a[1])*ff]; } acc+=seg[i]; }
+  return line[line.length-1];
 }
-function legCoord(A,B,col,T,clampF){
-  if(B.seg==='t1'||B.seg==='t2') return B.c;      // Wechselzone: fix auf die Matte
-  const ta=T[A.n][col], tb=T[B.n][col];
-  let f=tb>ta?(now2()-ta)/(tb-ta):0;
-  if(clampF) f=Math.min(1,f);                     // nicht über die nächste Matte hinaus
-  f=Math.max(0,f);
-  const line=ROUTES[ROUTE_DISC[B.seg]]||ROUTES.bike;
-  return subPathCoord(line, nearestIdx(line,A.c), nearestIdx(line,B.c), f)||B.c;
+function kmToCoord(km){
+  if(km<=KM.swimEnd) return coordAtFrac(ROUTES.swim, km/KM.swimEnd);
+  if(km<=KM.t1)      return RACE_POINTS.find(p=>p.n==='T1').c;     // Wechselzone fix
+  if(km<=KM.bikeEnd) return coordAtFrac(ROUTES.bike, (km-KM.t1)/(KM.bikeEnd-KM.t1));
+  if(km<=KM.t2)      return RACE_POINTS.find(p=>p.n==='T2').c;     // Wechselzone fix
+  return coordAtFrac(ROUTES.run, (km-KM.t2)/(KM.finish-KM.t2));
 }
-let _now=0; function now2(){ return _now; }
 function courseCoordAt(col,T){
-  _now=elapsedMin();
-  const pts=RACE_POINTS;
-  if(_now<=0) return pts[0].c;
-  // letzter absolvierter Punkt (mit Ist-Zeit)
+  const now=elapsedMin(), pts=RACE_POINTS;
+  if(now<=0) return pts[0].c;
   let li=-1; for(let i=0;i<pts.length;i++){ if(istMinOf(pts[i].n)!=null) li=i; }
+  let curKm=KM.finish;
   if(li>=0){
-    if(li>=pts.length-1) return pts[li].c;        // alles absolviert
-    // zwischen letzter Matte und nächster – maximal bis zur nächsten (noch nicht durchquert)
-    return legCoord(pts[li], pts[li+1], col, T, true);
+    if(li>=pts.length-1) return kmToCoord(pts[li].km);
+    const A=pts[li], B=pts[li+1], tA=T[A.n][col], tB=T[B.n][col];
+    let f=tB>tA?(now-tA)/(tB-tA):0; f=Math.max(0,Math.min(1,f)); // max bis zur nächsten Matte
+    curKm=A.km+(B.km-A.km)*f;
+  } else {
+    for(let i=1;i<pts.length;i++){ const tb=T[pts[i].n][col]; if(now<=tb){ const A=pts[i-1],ta=T[A.n][col]; let f=tb>ta?(now-ta)/(tb-ta):0; f=Math.max(0,Math.min(1,f)); curKm=A.km+(pts[i].km-A.km)*f; break; } }
   }
-  // noch keine Ist-Daten: entlang der Projektion (wie bisher)
-  for(let i=1;i<pts.length;i++){ if(_now<=T[pts[i].n][col]) return legCoord(pts[i-1], pts[i], col, T, false); }
-  return pts[pts.length-1].c;
+  return kmToCoord(curKm);
 }
 let posMarkers={ist:null};
 function updatePosition(T){
