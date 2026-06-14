@@ -615,8 +615,13 @@ function render(){
 
   // ladder
   const L=$('ladder'); L.innerHTML='';
-  let targetIdx=ms.findIndex(x=>x.t>elapsed);
   const T=computeTimes(ms);
+  // Ziel-Markierung folgt dem tatsächlichen Fortschritt: erste noch nicht erreichte Matte
+  // nach der zuletzt absolvierten. Erst ohne jegliche Ist-Daten (z. B. vor dem Start) Plan-basiert.
+  let lastReachedIdx=-1; ms.forEach((x,i)=>{ if(T[x.id]&&T[x.id].reached) lastReachedIdx=i; });
+  let targetIdx = lastReachedIdx>=0
+    ? (lastReachedIdx+1<ms.length ? lastReachedIdx+1 : -1)   // -1 = alles absolviert (im Ziel)
+    : ms.findIndex(x=>x.t>elapsed);
 
   // ETA-Block oben: im Ziel -> Ist-Ergebnis, sonst Soll (Plan) + Soll (KI)
   const eta=$('eta');
@@ -633,7 +638,7 @@ function render(){
   ms.forEach((x,i)=>{
     const reached = T[x.id].reached;
     const fromLive = !state.actuals[x.id] && !!state.liveActuals[x.id];
-    const isTarget = i===targetIdx && elapsed<tot; // vor dem Start ist das der Schwimmstart
+    const isTarget = i===targetIdx; // nächste noch nicht erreichte Matte (−1 = im Ziel, kein Rahmen)
     const prev = i>0?ms[i-1]:null;
     const isTrans = x.seg==='t1'||x.seg==='t2';
     const dist = prev? x.km-prev.km : 0;
