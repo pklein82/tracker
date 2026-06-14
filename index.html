@@ -150,6 +150,11 @@
   .hint{font-size:11px;color:var(--muted);margin-top:2px}
   .total{font-family:'Oswald';font-weight:600;font-size:14px;color:var(--swim);margin-top:4px}
 
+  .watch{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:11px 13px;margin-top:14px}
+  .watchh{font-family:'Oswald';font-weight:600;font-size:15px}
+  .watchhint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4}
+  .watchrow{display:flex;align-items:baseline;gap:10px;justify-content:space-between;font-family:'Oswald';font-size:15px;margin-top:5px}
+  .watchrow .t{font-size:11px;color:var(--live);font-weight:600}
   .foot{font-size:10.5px;color:var(--muted);text-align:center;margin-top:24px;line-height:1.5}
   .lastrecv{font-family:'Oswald';font-size:11px;color:var(--text);margin-bottom:6px}
 
@@ -258,6 +263,8 @@
     <span class="chip run" data-layer="run"><i></i>Laufen</span>
   </div>
   <div class="mapnote">Strecke IM Austria: Schwimmen 3,8 km · Rad 180 km · Laufen 42,2 km. Disziplinen oben ein-/ausblendbar.</div>
+
+  <div class="watch" id="watch"></div>
 
   <div class="sec-title">Zeitmessungspunkte · Soll · Ist · Prognose</div>
   <div class="ladder" id="ladder"></div>
@@ -677,6 +684,7 @@ function render(){
   updateMapTimes(T);
   updatePosition(T);
   updateOtherPositions();
+  renderWatch();
 }
 
 // Uhr + Rennzeit (sekündlich aktualisiert)
@@ -882,17 +890,56 @@ function initMap(){
   startGeo();
 }
 // Eigene Position (Handy) als blauer Punkt
-let meMarker=null;
+let meMarker=null, myPos=null, geoDenied=false;
 function startGeo(){
-  if(!MAP || typeof navigator==='undefined' || !navigator.geolocation) return;
+  if(typeof navigator==='undefined' || !navigator.geolocation){ geoDenied=true; renderWatch(); return; }
   navigator.geolocation.watchPosition(pos=>{
-    const c=[pos.coords.latitude,pos.coords.longitude];
-    if(!meMarker){
-      meMarker=L.circleMarker(c,{radius:9,color:'#fff',weight:3,fillColor:'#1E6BFF',fillOpacity:1,className:'mepos'})
-        .addTo(MAP).bindTooltip('Du',{permanent:true,direction:'right',className:'melbl',offset:[8,0]});
-    } else meMarker.setLatLng(c);
-    meMarker.bringToFront();
-  }, ()=>{}, {enableHighAccuracy:true, maximumAge:10000, timeout:20000});
+    myPos=[pos.coords.latitude,pos.coords.longitude]; geoDenied=false;
+    if(MAP){
+      if(!meMarker){
+        meMarker=L.circleMarker(myPos,{radius:9,color:'#fff',weight:3,fillColor:'#1E6BFF',fillOpacity:1,className:'mepos'})
+          .addTo(MAP).bindTooltip('Du',{permanent:true,direction:'right',className:'melbl',offset:[8,0]});
+      } else meMarker.setLatLng(myPos);
+      meMarker.bringToFront();
+    }
+    renderWatch();
+  }, e=>{ geoDenied=true; renderWatch(); }, {enableHighAccuracy:true, maximumAge:10000, timeout:20000});
+}
+// Distanz (m) zwischen zwei [lat,lng]
+function hav(a,b){ const R=6371000,t=x=>x*Math.PI/180; const dla=t(b[0]-a[0]),dlo=t(b[1]-a[1]); const s=Math.sin(dla/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dlo/2)**2; return R*2*Math.asin(Math.sqrt(s)); }
+// Stellen der Strecke, an denen man <100 m vom eigenen Standort entfernt ist (je Runde 1 Eintrag) -> km
+function userCoursePasses(pos){
+  const segs=[['swim',ROUTES.swim,0,KM.swimEnd],['bike',ROUTES.bike,KM.t1,KM.bikeEnd],['run',ROUTES.run,KM.t2,KM.finish]];
+  let near=[];
+  segs.forEach(([disc,line,startKm,endKm])=>{
+    let tot=0; const cum=[0]; for(let i=1;i<line.length;i++){ tot+=hav(line[i-1],line[i]); cum.push(tot); }
+    const dist=endKm-startKm;
+    for(let i=0;i<line.length;i++){ const d=hav(pos,line[i]); if(d<=100){ near.push({km:startKm+(cum[i]/tot)*dist, d, disc}); } }
+  });
+  near.sort((a,b)=>a.km-b.km);
+  const out=[]; near.forEach(r=>{ const last=out[out.length-1]; if(!last||r.km-last.km>3) out.push(r); else if(r.d<last.d) out[out.length-1]=r; });
+  return out;
+}
+// voraussichtliche Ankunftsminute (ab Start) des Athleten bei Streckenkilometer K
+function predMinAtKm(K,T){
+  const pts=RACE_POINTS;
+  if(K<=pts[0].km) return T[pts[0].n].hrIst;
+  for(let i=1;i<pts.length;i++){ if(K<=pts[i].km){ const a=pts[i-1],b=pts[i],f=(b.km>a.km)?(K-a.km)/(b.km-a.km):0; return T[a.n].hrIst+(T[b.n].hrIst-T[a.n].hrIst)*f; } }
+  return T[pts[pts.length-1].n].hrIst;
+}
+function renderWatch(){
+  const el=document.getElementById('watch'); if(!el) return;
+  const vn=(state.name||'Athlet').split(/\s+/)[0];
+  let html=`<div class="watchh">Du siehst <b style="color:var(--live)">${vn}</b></div>`;
+  if(geoDenied){ html+=`<div class="watchhint">📍 Standort nicht freigegeben – erlaube den Standortzugriff, dann sehe ich, wann ${vn} bei dir vorbeikommt.</div>`; }
+  else if(!myPos){ html+=`<div class="watchhint">📍 Standort wird ermittelt …</div>`; }
+  else {
+    const T=computeTimes(buildMilestones()), el2=elapsedMin();
+    const passes=userCoursePasses(myPos).map(p=>({km:p.km, t:predMinAtKm(p.km,T)})).filter(p=>p.t-el2>-2).sort((a,b)=>a.t-b.t);
+    if(!passes.length){ html+=`<div class="watchhint">Du bist nicht direkt an der Strecke (mehr als 100 m entfernt).</div>`; }
+    else { html+=`<div class="watchhint">${vn} kommt bei dir vorbei:</div>`+passes.map((p,i)=>{ const inMin=Math.max(0,Math.round(p.t-el2)); const lab=passes.length>1?('Vorbeikommen '+(i+1)):'Vorbeikommen'; return `<div class="watchrow"><span>${lab}</span><b>${clockFromStart(p.t)}</b><span class="t">in ${inMin} min</span></div>`; }).join(''); }
+  }
+  el.innerHTML=html;
 }
 // Karte auf den Athleten zoomen: aktuelle (letzte) Matte → Position → nächste Matte
 function focusAthlete(){
