@@ -155,6 +155,7 @@
   .watchhint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4}
   .watchrow{display:flex;align-items:baseline;gap:10px;justify-content:space-between;font-family:'Oswald';font-size:15px;margin-top:5px}
   .watchrow .t{font-size:11px;color:var(--live);font-weight:600}
+  .notifybtn{margin-top:8px;font-family:'Oswald';font-weight:600;font-size:12px;letter-spacing:.04em;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer}
   .foot{font-size:10.5px;color:var(--muted);text-align:center;margin-top:24px;line-height:1.5}
   .lastrecv{font-family:'Oswald';font-size:11px;color:var(--text);margin-bottom:6px}
 
@@ -391,6 +392,7 @@ function simTick(){
   ms.forEach(x=>{ const a=prevAct+(x.t-prevPlan)*((mult[x.seg]||1)+va); if(a<=el) act[x.id]=clockFromStart(Math.round(a)); prevPlan=x.t; prevAct=a; });
   state.liveByAthlete[state.athlete]={actuals:act, splits:Object.keys(act).map(id=>({point:id,label:id,tod:act[id],net:''}))};
   state.liveActuals=act;
+  notifyNewSplits();
   render();
 }
 
@@ -810,6 +812,7 @@ async function fetchAllLive(){
   lastLiveTs=Date.now();
   const cur=state.liveByAthlete[state.athlete]||{actuals:{},splits:[]};
   state.liveActuals=cur.actuals||{}; state.liveSplits=cur.splits||[];
+  notifyNewSplits();
   await save(); render(); // render() ruft computeTimes() -> Hochrechnungen frisch
 }
 function startPoll(){ stopPoll();
@@ -939,7 +942,27 @@ function renderWatch(){
     if(!passes.length){ html+=`<div class="watchhint">Du bist nicht direkt an der Strecke (mehr als 100 m entfernt).</div>`; }
     else { html+=`<div class="watchhint">${vn} kommt bei dir vorbei:</div>`+passes.map((p,i)=>{ const inMin=Math.max(0,Math.round(p.t-el2)); const lab=passes.length>1?('Vorbeikommen '+(i+1)):'Vorbeikommen'; return `<div class="watchrow"><span>${lab}</span><b>${clockFromStart(p.t)}</b><span class="t">in ${inMin} min</span></div>`; }).join(''); }
   }
+  // Benachrichtigungen
+  if(typeof Notification!=='undefined'){
+    if(Notification.permission==='granted') html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv (neue Zwischenzeiten)</div>`;
+    else if(Notification.permission==='denied') html+=`<div class="watchhint">🔔 Benachrichtigungen blockiert – im Browser für diese Seite erlauben.</div>`;
+    else html+=`<button class="notifybtn" onclick="enableNotify()">🔔 Benachrichtigungen aktivieren</button>`;
+  }
   el.innerHTML=html;
+}
+// Lokale Benachrichtigungen bei neuer Ist-Zeit (während die Seite offen/aktiv ist)
+let notifySeen={};
+function enableNotify(){ if(typeof Notification!=='undefined'){ Notification.requestPermission().then(()=>renderWatch()); } }
+function notifyNewSplits(){
+  if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
+  const key=state.athlete, acts=state.liveActuals||{};
+  let seen=notifySeen[key];
+  if(!seen){ notifySeen[key]=new Set(Object.keys(acts)); return; } // erster Durchlauf: nur merken (kein Backlog-Spam)
+  const vn=(state.name||'Athlet').split(/\s+/)[0];
+  Object.keys(acts).forEach(id=>{ if(!seen.has(id)){ seen.add(id);
+    const p=RACE_POINTS.find(r=>r.n===id), lab=p?p.l:id;
+    try{ new Notification(vn+' · '+lab, {body:'Durchgang um '+acts[id], tag:'rt-'+key+'-'+id}); }catch(e){}
+  }});
 }
 // Karte auf den Athleten zoomen: aktuelle (letzte) Matte → Position → nächste Matte
 function focusAthlete(){
