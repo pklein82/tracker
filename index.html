@@ -959,19 +959,39 @@ function renderWatch(){
 // Lokale Benachrichtigungen bei neuer Ist-Zeit (während die Seite offen/aktiv ist)
 let notifySeen={};
 function enableNotify(){ if(typeof Notification!=='undefined'){ Notification.requestPermission().then(()=>renderWatch()); } }
+// Aktive Service-Worker-Registrierung holen (mit Timeout, damit ready() nicht ewig hängt)
+function swRegistration(ms){
+  if(!('serviceWorker' in navigator)) return Promise.resolve(null);
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise(res=>setTimeout(()=>res(null), ms||2000))
+  ]).catch(()=>null);
+}
 // Zeigt eine Meldung – bevorzugt über den Service Worker (Android-Chrome erlaubt kein new Notification),
 // mit Fallback auf den klassischen Konstruktor. Liefert true, wenn die Anzeige geklappt hat.
 function showNotif(title, opts){
   opts=opts||{};
   if(typeof Notification==='undefined' || Notification.permission!=='granted') return Promise.resolve(false);
-  if(navigator.serviceWorker && navigator.serviceWorker.ready){
-    return navigator.serviceWorker.ready
-      .then(reg=>reg.showNotification(title, opts)).then(()=>true)
-      .catch(()=>{ try{ new Notification(title, opts); return true; }catch(e){ return false; } });
-  }
-  try{ new Notification(title, opts); return Promise.resolve(true); }catch(e){ return Promise.resolve(false); }
+  return swRegistration().then(reg=>{
+    if(reg && reg.showNotification) return reg.showNotification(title, opts).then(()=>true).catch(()=>false);
+    return false;
+  }).then(ok=>{
+    if(ok) return true;
+    try{ new Notification(title, opts); return true; }catch(e){ return false; }
+  });
 }
-function testNotify(){ showNotif('Test ✅', {body:'Benachrichtigungen funktionieren.'}).then(ok=>{ if(!ok) alert('Anzeige nicht möglich – Mitteilungen werden vom Browser/Betriebssystem blockiert.'); }); }
+// Test mit ausführlicher Diagnose
+async function testNotify(){
+  if(typeof Notification==='undefined'){ alert('Dieser Browser kennt die Notification-API nicht.'); return; }
+  if(Notification.permission!=='granted'){ alert('Keine Berechtigung (Status: '+Notification.permission+').'); return; }
+  const reg=await swRegistration(2000);
+  if(reg && reg.showNotification){
+    try{ await reg.showNotification('Test ✅', {body:'Anzeige über Service Worker.'}); return; }
+    catch(e){ alert('Service Worker da, Anzeige scheiterte: '+e.message); return; }
+  }
+  try{ new Notification('Test ✅', {body:'Direkte Anzeige.'}); }
+  catch(e){ alert('Service Worker nicht aktiv und direkte Anzeige blockiert ('+e.message+').'+(swError?'\nSW-Fehler: '+swError:'\nVermutlich noch nicht aktiv – Seite neu laden bzw. als App öffnen.')); }
+}
 function notifyNewSplits(){
   if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
   const key=state.athlete, acts=state.liveActuals||{};
@@ -1141,7 +1161,8 @@ document.getElementById('athletes').addEventListener('click',e=>{
 });
 
 // ---- Boot ----
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+let swError=null;
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(e=>{ swError=e&&e.message||String(e); }); }
 (async function(){
   await load();
   renderAthletes();
