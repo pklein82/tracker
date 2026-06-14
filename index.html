@@ -959,7 +959,19 @@ function renderWatch(){
 // Lokale Benachrichtigungen bei neuer Ist-Zeit (während die Seite offen/aktiv ist)
 let notifySeen={};
 function enableNotify(){ if(typeof Notification!=='undefined'){ Notification.requestPermission().then(()=>renderWatch()); } }
-function testNotify(){ try{ new Notification('Test ✅', {body:'Benachrichtigungen funktionieren.'}); }catch(e){ alert('Benachrichtigung konnte nicht angezeigt werden: '+e.message); } }
+// Zeigt eine Meldung – bevorzugt über den Service Worker (Android-Chrome erlaubt kein new Notification),
+// mit Fallback auf den klassischen Konstruktor. Liefert true, wenn die Anzeige geklappt hat.
+function showNotif(title, opts){
+  opts=opts||{};
+  if(typeof Notification==='undefined' || Notification.permission!=='granted') return Promise.resolve(false);
+  if(navigator.serviceWorker && navigator.serviceWorker.ready){
+    return navigator.serviceWorker.ready
+      .then(reg=>reg.showNotification(title, opts)).then(()=>true)
+      .catch(()=>{ try{ new Notification(title, opts); return true; }catch(e){ return false; } });
+  }
+  try{ new Notification(title, opts); return Promise.resolve(true); }catch(e){ return Promise.resolve(false); }
+}
+function testNotify(){ showNotif('Test ✅', {body:'Benachrichtigungen funktionieren.'}).then(ok=>{ if(!ok) alert('Anzeige nicht möglich – Mitteilungen werden vom Browser/Betriebssystem blockiert.'); }); }
 function notifyNewSplits(){
   if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
   const key=state.athlete, acts=state.liveActuals||{};
@@ -968,7 +980,7 @@ function notifyNewSplits(){
   const vn=(state.name||'Athlet').split(/\s+/)[0];
   Object.keys(acts).forEach(id=>{ if(!seen.has(id)){ seen.add(id);
     const p=RACE_POINTS.find(r=>r.n===id), lab=p?p.l:id;
-    try{ new Notification(vn+' · '+lab, {body:'Durchgang um '+acts[id], tag:'rt-'+key+'-'+id}); }catch(e){}
+    showNotif(vn+' · '+lab, {body:'Durchgang um '+acts[id], tag:'rt-'+key+'-'+id});
   }});
 }
 // Karte auf den Athleten zoomen: aktuelle (letzte) Matte → Position → nächste Matte
@@ -1129,6 +1141,7 @@ document.getElementById('athletes').addEventListener('click',e=>{
 });
 
 // ---- Boot ----
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 (async function(){
   await load();
   renderAthletes();
