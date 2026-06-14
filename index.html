@@ -164,6 +164,14 @@
   .leaflet-tooltip.poslbl::before{display:none}
   .leaflet-tooltip.othlbl{background:#1b2b33;color:#fff;border:1px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);font-family:'Oswald';font-weight:700;font-size:11px;letter-spacing:.04em;padding:1px 5px;border-radius:6px}
   .leaflet-tooltip.othlbl::before{display:none}
+  /* Popup mit Vorbeikomm-Zeiten */
+  .leaflet-popup.mappopw .leaflet-popup-content-wrapper{background:#0E1D24;color:var(--text);border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .leaflet-popup.mappopw .leaflet-popup-content{margin:9px 12px}
+  .leaflet-popup.mappopw .leaflet-popup-tip{background:#0E1D24;border:1px solid var(--line)}
+  .leaflet-popup.mappopw a.leaflet-popup-close-button{color:var(--muted)}
+  .mappoph{font-family:'Oswald';font-weight:700;font-size:12px;margin-bottom:5px}
+  .mappr{display:flex;gap:10px;justify-content:space-between;align-items:baseline;font-family:'Oswald';font-size:14px;margin-top:2px}
+  .mappr .t{font-size:9px;color:var(--muted);letter-spacing:.06em}
   .leaflet-tooltip.matlbl.matlbl-sel{border:2px solid #FFD23F;color:#FFD23F;background:rgba(10,20,24,.95);font-size:11px}
   .maplegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;
@@ -314,6 +322,11 @@ const SEG2DISC={swim:'swim',t1:'bike',bike:'bike',t2:'run',run:'run',finish:'fin
 const DSTART={swim:'START',t1:'SWIM',bike:'T1',t2:'BIKE',run:'T2',finish:'T2'};
 // kumulierte Streckengrenzen (km) der Matten oben -> für Soll-Zeit-Interpolation
 const KM={swimEnd:3.81, t1:4.47, bikeEnd:184.322, t2:184.57, finish:226.922};
+// Runden-Paarung: gleiche Stelle auf der Strecke in Runde 1 und Runde 2 (Rad 7+7, Lauf je Reihenfolge)
+const PAIR=(()=>{ const pr={}, bk=RACE_POINTS.filter(p=>p.seg==='bike'), rn=RACE_POINTS.filter(p=>p.seg==='run');
+  const b1=bk.slice(0,7), b2=bk.slice(7); b1.forEach((p,k)=>{ if(b2[k]){ pr[p.n]=b2[k].n; pr[b2[k].n]=p.n; } });
+  const r1=rn.filter(p=>p.km-184.57<=21.6), r2=rn.filter(p=>p.km-184.57>21.6); r1.forEach((p,k)=>{ if(r2[k]){ pr[p.n]=r2[k].n; pr[r2[k].n]=p.n; } });
+  return pr; })();
 // Geplante Rad-Splits: kumulierte Rad-Zeit (min) je Rad-Punkt – Referenzprofil, Rad gesamt 4:58:35.
 // (Reihenfolge entspricht den Rad-Punkten; Dauern zwischen den Punkten = nicht-lineares Pacing.)
 const BIKE_PLAN_MIN={BIKE1:33+53/60,BIKE2:48+49/60,BIKE3:53+47/60,BIKE4:71+24/60,BIKE5:83+1/60,BIKE6:117+17/60,BIKE8:147+10/60,BIKE9:182+10/60,BIKE11:197+42/60,BIKE10:202+58/60,BIKE12:221+26/60,BIKE13:234+26/60,BIKE14:269+24/60,BIKE:298+35/60};
@@ -826,7 +839,7 @@ function initMap(){
     const disc=SEG2DISC[p.seg]||'bike', grp=SEG2LAYER[p.seg]||'bike';
     const m=L.circleMarker(p.c,{radius:p.b?6:4,color:'#0A1418',weight:1.5,fillColor:DCOL[disc]||'#fff',fillOpacity:.95});
     if(matLabel[p.n]) m.bindTooltip(matLabel[p.n],{permanent:true,direction:'top',className:'matlbl',offset:[0,-3]});
-    m.on('click',()=>focusOnField({id:p.n,c:p.c})); // Klick auf Matten-Kreis: markieren + zur Zeile springen
+    m.on('click',()=>showMatTimes(p.n)); // Klick auf Matten-Kreis: Vorbeikomm-Zeit(en) anzeigen
     pointMarkers[p.n]=m;
     layers[grp].addLayer(m);
   });
@@ -957,6 +970,21 @@ function markAndZoom(x){
   if(i>=0 && i<RACE_POINTS.length-1 && RACE_POINTS[i+1].c) cs.push(RACE_POINTS[i+1].c);
   if(cs.length>=2) MAP.fitBounds(L.latLngBounds(cs),{padding:[50,50],maxZoom:16});
   else MAP.setView(x.c,15,{animate:true});
+}
+// Klick auf Matten-Kreis: markieren/zoomen + Popup mit Vorbeikomm-Zeit(en) des gewählten Athleten
+function showMatTimes(name){
+  const p=RACE_POINTS.find(r=>r.n===name); if(!MAP||!p||!p.c) return;
+  markAndZoom({id:name,c:p.c});
+  const T=computeTimes(buildMilestones());
+  const grp=[p]; if(PAIR[name]){ const q=RACE_POINTS.find(r=>r.n===PAIR[name]); if(q) grp.push(q); }
+  grp.sort((a,b)=>a.km-b.km);
+  const km=pp=>{ const mt=String(pp.l).match(/([\d.,]+)\s*km/); return mt?mt[1]+' km':pp.l; };
+  const rows=grp.map((pp,i)=>{ const r=T[pp.n], tag=r.reached?'Ist':'Prog';
+    const lab=grp.length>1?('Runde '+(i+1)+' · '+km(pp)):km(pp);
+    return `<div class="mappr"><span>${lab}</span><b>${clockFromStart(r.hrIst)}</b> <span class="t">${tag}</span></div>`; }).join('');
+  const disc={swim:'Schwimmen',bike:'Radfahren',run:'Laufen',t1:'Wechsel T1',t2:'Wechsel T2',finish:'Ziel'}[p.seg]||'';
+  const m=pointMarkers[name];
+  if(m) m.bindPopup(`<div class="mappop"><div class="mappoph">${disc} · ${state.name}</div>${rows}</div>`,{className:'mappopw',offset:[0,-4]}).openPopup();
 }
 // Klick auf eine Matte (Ladder): markieren/zoomen + Karte in den Blick scrollen
 function focusOnPoint(x){ markAndZoom(x); const b=document.getElementById('map'); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); }
