@@ -393,7 +393,7 @@ function startDate(){
   const [h,m]=state.start.split(':').map(x=>parseInt(x,10));
   return new Date(RACE_DATE.y, RACE_DATE.mo, RACE_DATE.d, h||0, m||0, 0, 0);
 }
-function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return d.getHours()+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
 function totalMin(){ const d=state.dur; return d.swim+d.t1+d.bike+d.t2+d.run; }
 
 // ---- Athleten ----
