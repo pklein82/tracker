@@ -706,9 +706,10 @@ function updateTopClocks(){
   const rt=$('raceTime');
   if(rt&&rt.firstChild){
     const fin=istMinOf('FINISH'); const sm=rt.querySelector('small');
-    if(fin!=null){ // im Ziel: Endzeit anzeigen, nicht weiterzählen
-      rt.firstChild.textContent=hms(fin); if(sm) sm.textContent='im Ziel';
+    if(fin!=null){ // im Ziel: Rennzeit-Anzeige ganz ausblenden
+      rt.style.display='none';
     } else {
+      rt.style.display='';
       const el=elapsedMin();
       rt.firstChild.textContent= el<0?'–:--':hms(el); if(sm) sm.textContent='im Rennen';
     }
@@ -974,7 +975,7 @@ function renderWatch(){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
     const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v8</span></div>`;
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v9</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
