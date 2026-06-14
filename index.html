@@ -541,6 +541,9 @@ function computeTimes(ms){
       hrIst:  reached?v:(baseIst==null?x.t:baseIst+integrate(lastReached.km,x.km,mpkIst))
     };
   });
+  // Start ist immer Rennstart = 0 (Referenz für "Zeit in Disziplin"); keine Rückwärts-Projektion
+  const sv=istMinOf('START');
+  if(res.START) res.START={reached:sv!=null, plan:0, hrPlan: sv!=null?sv:0, hrIst: sv!=null?sv:0};
   return res;
 }
 
