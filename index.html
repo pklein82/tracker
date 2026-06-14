@@ -948,7 +948,8 @@ function renderWatch(){
   if(typeof Notification==='undefined'){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a></div>`;
+    const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v4</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
