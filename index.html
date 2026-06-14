@@ -391,6 +391,9 @@ function parseHM(str){ // "1:14" oder "74" (min) je nach Kontext - hier h:mm -> 
 }
 function minToHM(m){ const h=Math.floor(m/60), mm=Math.round(m%60); return h+':'+pad(mm); }
 function startDate(){
+  // bevorzugt die tatsächliche Startzeit (START-Split, mit Sekunden), sonst Plan-Start
+  const a=(state.actuals&&state.actuals.START)||(state.liveActuals&&state.liveActuals.START);
+  if(a && /^\d{1,2}:\d{1,2}/.test(a)){ const [h,m,s]=String(a).split(':').map(x=>parseInt(x,10)); return new Date(RACE_DATE.y,RACE_DATE.mo,RACE_DATE.d,h||0,m||0,s||0,0); }
   const [h,m]=state.start.split(':').map(x=>parseInt(x,10));
   return new Date(RACE_DATE.y, RACE_DATE.mo, RACE_DATE.d, h||0, m||0, 0, 0);
 }
