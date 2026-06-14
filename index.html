@@ -503,6 +503,12 @@ function hms(min){
   let s=Math.max(0,Math.round(min*60)); const h=Math.floor(s/3600); s-=h*3600; const m=Math.floor(s/60); s-=m*60;
   return (h>0? h+':'+pad(m) : ''+m)+':'+pad(s);
 }
+// h:mm (ohne Sekunden) – Live-Zeiten sind ohnehin minutengenau
+function hm(min){
+  if(min==null||isNaN(min)) return '';
+  let m=Math.max(0,Math.round(min)); const h=Math.floor(m/60); m-=h*60;
+  return h+':'+pad(m);
+}
 // Soll / HR Plan / HR Ist (Minuten ab Start) je Punkt – genutzt von Ladder UND Karte
 function computeTimes(ms){
   let lastReached=null;
@@ -627,8 +633,8 @@ function render(){
         <div class="ch">${lab}</div>
         ${col!=='plan'?`<div class="ct num">${clockFromStart(v)}</div>`:''}
         <div class="cd">${delta}</div>
-        <div class="cv num">Σ ${hms(v)}</div>
-        <div class="${col==='plan'?'ct num discmain':'cv num'}">${dIcon} ${hms(v-ref)}</div>
+        <div class="${col==='plan'?'ct num discmain':'cv num'}">${dIcon} ${hm(v-ref)}</div>
+        <div class="cv num">Σ ${hm(v)}</div>
         <div class="cv num">${spLine}</div>
       </div>`;
     };
