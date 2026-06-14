@@ -109,6 +109,7 @@
   .rsub{font-size:10.5px;color:var(--muted);margin-left:auto;text-align:right;white-space:nowrap}
   .src{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ahead);font-family:'Oswald';font-weight:600}
   .into{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#7FB6E8;font-family:'Oswald';font-weight:600}
+  .into.late{color:var(--behind)}
   /* Spalten */
   .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:9px}
   .cols.two{grid-template-columns:1fr 2fr}
@@ -664,9 +665,9 @@ function render(){
     const div=document.createElement('div');
     div.className='rung '+x.disc+(reached?' done':' pending')+(isTarget?' target':'');
     div.dataset.id=x.id;
-    const cd=Math.round(T[x.id].hrIst-elapsed); // Minuten bis zur voraussichtlichen Ankunft
+    const cd=Math.round(T[x.id].hrIst-elapsed); // + = noch X min, − = überfällig (vor X min)
     const tag = reached ? '<span class="src">Absolviert</span>'
-              : (cd>=0 ? '<span class="into">in '+cd+' min</span>' : '');
+              : (cd>=0 ? '<span class="into">in '+cd+' min</span>' : '<span class="into late">vor '+(-cd)+' min</span>');
     div.innerHTML=`
       <div class="rhead">
         <span class="dot"></span>
