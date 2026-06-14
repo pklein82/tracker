@@ -792,17 +792,17 @@ async function fetchOne(key){
     state.liveByAthlete[key]={splits, actuals:mapToMilestones(splits)};
   }catch(e){}
 }
-// Immer ALLE Athleten parallel abrufen (mehrere Zuschauer/Personen) + Ansicht aktualisieren
+// Immer ALLE Athleten parallel abrufen; bei neuer Ist-Zeit sofort Hochrechnungen neu berechnen
 async function fetchAllLive(){
   await Promise.all(Object.keys(ATHLETES).map(fetchOne));
   lastLiveTs=Date.now();
   const cur=state.liveByAthlete[state.athlete]||{actuals:{},splits:[]};
   state.liveActuals=cur.actuals||{}; state.liveSplits=cur.splits||[];
-  await save(); render();
+  await save(); render(); // render() ruft computeTimes() -> Hochrechnungen frisch
 }
 function startPoll(){ stopPoll();
   if(SIM){ simTick(); pollTimer=setInterval(simTick,1000); return; } // Demo: 1×/s im Zeitraffer
-  if(state.live.on){ fetchAllLive(); pollTimer=setInterval(fetchAllLive,60000); }
+  if(state.live.on){ fetchAllLive(); pollTimer=setInterval(fetchAllLive,30000); } // alle 30 s neue Ist-Zeiten
 }
 function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 function esc(t){ return String(t).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
