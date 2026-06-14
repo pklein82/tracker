@@ -156,7 +156,9 @@
   #map{height:60vh;min-height:340px;width:100vw;position:relative;left:50%;margin-left:-50vw;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface2);margin-top:4px;z-index:0}
   .leaflet-container{background:#0c1b22;font-family:'Inter',sans-serif}
   .maptip{font-family:'Oswald';font-weight:600;font-size:12px}
+  .mapbtns{display:flex;gap:6px}
   .mapbtn{font-family:'Oswald';font-weight:600;font-size:12px;letter-spacing:.04em;background:var(--live);color:#fff;border:2px solid #fff;border-radius:9px;padding:7px 11px;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.4)}
+  .mapbtn.me{background:#1E6BFF}
   .mapbtn:active{filter:brightness(.9)}
   /* permanente Matten-Beschriftung (zurückgelegte Distanz) */
   .leaflet-tooltip.matlbl{background:rgba(10,20,24,.82);color:#EAF4F4;border:none;box-shadow:none;font-family:'Oswald';font-weight:600;font-size:10px;letter-spacing:.02em;padding:1px 5px;border-radius:5px;white-space:nowrap;cursor:pointer}
@@ -865,11 +867,13 @@ function initMap(){
   // nach dem Full-Width-Resize neu einpassen, damit die Strecke sauber gerahmt ist
   setTimeout(()=>{ if(MAP){ MAP.invalidateSize(); MAP.fitBounds(bounds,{padding:[24,24]}); } },300);
   window.addEventListener('resize',()=>{ if(MAP){ MAP.invalidateSize(); MAP.fitBounds(bounds,{padding:[24,24]}); } });
-  // Button: auf den Athleten zentrieren (aktuelle Matte bis nächste)
-  const Btn=L.Control.extend({options:{position:'topright'}, onAdd:function(){
-    const b=L.DomUtil.create('button','mapbtn'); b.type='button'; b.innerHTML='🎯 Athlet';
-    L.DomEvent.disableClickPropagation(b); L.DomEvent.on(b,'click',L.DomEvent.stop); b.onclick=focusAthlete; return b; }});
-  MAP.addControl(new Btn());
+  // Buttons oben rechts: auf Athleten bzw. auf eigene Position zentrieren
+  const Btns=L.Control.extend({options:{position:'topright'}, onAdd:function(){
+    const w=L.DomUtil.create('div','mapbtns');
+    const a=L.DomUtil.create('button','mapbtn',w); a.type='button'; a.innerHTML='🎯 Athlet'; a.onclick=focusAthlete;
+    const d=L.DomUtil.create('button','mapbtn me',w); d.type='button'; d.innerHTML='📍 Du'; d.onclick=focusMe;
+    L.DomEvent.disableClickPropagation(w); L.DomEvent.on(w,'click',L.DomEvent.stop); return w; }});
+  MAP.addControl(new Btns());
   updateMapTimes(computeTimes(buildMilestones()));
   startGeo();
 }
@@ -897,6 +901,12 @@ function focusAthlete(){
   if(ni>=0 && pts[ni] && pts[ni].c) cs.push(pts[ni].c);
   if(cs.length>=2) MAP.fitBounds(L.latLngBounds(cs),{padding:[45,45],maxZoom:15});
   else if(cs.length===1) MAP.setView(cs[0],14,{animate:true});
+}
+// Karte auf die eigene Position (Handy) zentrieren
+function focusMe(){
+  if(!MAP) return;
+  if(meMarker){ MAP.setView(meMarker.getLatLng(),15,{animate:true}); meMarker.bringToFront(); }
+  else if(typeof navigator!=='undefined' && navigator.geolocation){ navigator.geolocation.getCurrentPosition(p=>{ MAP.setView([p.coords.latitude,p.coords.longitude],15,{animate:true}); },()=>{},{enableHighAccuracy:true}); }
 }
 // Passierte Durchgangspunkte rot färben (Distanz-Beschriftung bleibt); ausgewählte Matte markieren
 let selectedMat=null, selMarker=null;
