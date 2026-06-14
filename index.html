@@ -949,7 +949,7 @@ function renderWatch(){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
     const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v5</span></div>`;
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v6</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
@@ -998,16 +998,48 @@ async function testNotify(){
   try{ new Notification('Test ✅', {body:'Direkte Anzeige.'}); }
   catch(e){ alert('Service Worker nicht aktiv und direkte Anzeige blockiert ('+e.message+').'+(swError?'\nSW-Fehler: '+swError:'\nVermutlich noch nicht aktiv – Seite neu laden bzw. als App öffnen.')); }
 }
+// Baut den ausführlichen Benachrichtigungstext für eine erreichte Matte (gleiche Werte wie die Tabelle)
+function notifyBody(ms, T, x){
+  const col='hrIst';
+  const i=ms.indexOf(x), prev=i>0?ms[i-1]:null;
+  const v=T[x.id][col];
+  const ref=T[DSTART[x.seg]]?T[DSTART[x.seg]][col]:0;
+  const isTrans=(x.seg==='t1'||x.seg==='t2');
+  const dIcon=isTrans?'🔁':(ICON[SEG2DISC[x.seg]]||ICON[x.disc]||'');
+  const lines=[];
+  lines.push('🕒 '+clockFromStart(v)+'  '+dIcon);
+  lines.push('Σ '+hms(v)+' gesamt · '+hms(v-ref)+' in Disziplin');
+  if(x.id!=='START'){
+    const d=Math.round(v-T[x.id].plan);
+    if(d===0) lines.push('±0 min – genau im Plan');
+    else if(d<0) lines.push('▲ '+Math.abs(d)+' min Vorsprung auf Plan');
+    else lines.push('▼ '+d+' min Rückstand auf Plan');
+  }
+  const spSeg = x.seg==='finish'?'run':x.seg;
+  const segStartKm = spSeg==='swim'?0 : spSeg==='bike'?KM.t1 : spSeg==='run'?KM.t2 : null;
+  if(segStartKm!=null){
+    const leg = prev? legSpeed(spSeg, v-T[prev.id][col], x.km-prev.km) : '';
+    const avg = legSpeed(spSeg, v-ref, x.km-segStartKm);
+    const sp = (leg||'') + (avg? (leg?' · ⌀ ':'⌀ ')+avg : '');
+    if(sp) lines.push('Tempo '+sp);
+  }
+  return lines.join('\n');
+}
 function notifyNewSplits(){
   if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
   const key=state.athlete, acts=state.liveActuals||{};
   let seen=notifySeen[key];
   if(!seen){ notifySeen[key]=new Set(Object.keys(acts)); return; } // erster Durchlauf: nur merken (kein Backlog-Spam)
   const vn=(state.name||'Athlet').split(/\s+/)[0];
-  Object.keys(acts).forEach(id=>{ if(!seen.has(id)){ seen.add(id);
+  const newIds=Object.keys(acts).filter(id=>!seen.has(id));
+  if(!newIds.length) return;
+  const ms=buildMilestones(), T=computeTimes(ms);
+  newIds.forEach(id=>{ seen.add(id);
     const p=RACE_POINTS.find(r=>r.n===id), lab=p?p.l:id;
-    showNotif(vn+' · '+lab, {body:'Durchgang um '+acts[id], tag:'rt-'+key+'-'+id});
-  }});
+    const x=ms.find(m=>m.id===id);
+    const body=(x&&T[x.id]&&T[x.id].reached)? notifyBody(ms,T,x) : ('Durchgang um '+acts[id]);
+    showNotif(vn+' · '+lab, {body, tag:'rt-'+key+'-'+id});
+  });
 }
 // Karte auf den Athleten zoomen: aktuelle (letzte) Matte → Position → nächste Matte
 function focusAthlete(){
