@@ -250,11 +250,7 @@
 
 <div class="wrap">
   <div class="sec-title">Strecke</div>
-  <div class="course">
-    <div class="leg swim"><div class="ico">🏊</div><div class="d">3,8 km</div><div class="l">Schwimmen<br>Wörthersee · Strandbad → Lendkanal</div></div>
-    <div class="leg bike"><div class="ico">🚴</div><div class="d">180 km</div><div class="l">Rad · 2 Runden<br>~1.500 hm · Süd­ufer / Velden</div></div>
-    <div class="leg run"><div class="ico">🏃</div><div class="d">42,2 km</div><div class="l">Marathon · 2 Runden<br>Altstadt · Ziel Metnitzstrand</div></div>
-  </div>
+  <div class="watch" id="watch"></div>
 
   <div class="sec-title">Karte</div>
   <div id="map"></div>
@@ -265,12 +261,17 @@
   </div>
   <div class="mapnote">Strecke IM Austria: Schwimmen 3,8 km · Rad 180 km · Laufen 42,2 km. Disziplinen oben ein-/ausblendbar.</div>
 
-  <div class="watch" id="watch"></div>
-
   <div class="sec-title">Zeitmessungspunkte · Soll · Ist · Prognose</div>
   <div class="ladder" id="ladder"></div>
 
   <div class="hint" style="margin-top:14px"><b>Soll</b> = Planzeit · <b>Soll (Plan)</b> = Soll + aktueller Vorsprung/Rückstand · <b>Soll (KI)</b> = Hochrechnung aus dem aktuellen Tempo (Rad ab 90 km anhand der 1. Runde, Lauf ab 11 km anhand der letzten ~10–12 km; Schwimmen/Wechsel wie Soll (Plan)). Erreichte Punkte zeigen die Ist-Zeit. Je Spalte: Uhrzeit · <b>Σ</b> Rennzeit seit Start · 🏊/🚴/🏃 Zeit in der Disziplin · Tempo des letzten Abschnitts (Schwimmen min/100 m · Rad km/h · Lauf min/km). Auf der Karte: Matten mit zurückgelegter Distanz beschriftet (bei 2 Runden „1. Rd / 2. Rd km"), bereits passierte Punkte rot; der pulsierende Punkt ist die aktuelle Position (Soll KI), der graue die Soll-Position.</div>
+
+  <div class="sec-title">Streckeninfo</div>
+  <div class="course">
+    <div class="leg swim"><div class="ico">🏊</div><div class="d">3,8 km</div><div class="l">Schwimmen<br>Wörthersee · Strandbad → Lendkanal</div></div>
+    <div class="leg bike"><div class="ico">🚴</div><div class="d">180 km</div><div class="l">Rad · 2 Runden<br>~1.500 hm · Süd­ufer / Velden</div></div>
+    <div class="leg run"><div class="ico">🏃</div><div class="d">42,2 km</div><div class="l">Marathon · 2 Runden<br>Altstadt · Ziel Metnitzstrand</div></div>
+  </div>
 
   <div class="foot">
     <div id="lastRecv" class="lastrecv">Noch kein Datensatz vom Tracker empfangen.</div>
