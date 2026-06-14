@@ -945,16 +945,21 @@ function renderWatch(){
     else { html+=`<div class="watchhint">${vn} kommt bei dir vorbei:</div>`+passes.map((p,i)=>{ const inMin=Math.max(0,Math.round(p.t-el2)); const lab=passes.length>1?('Vorbeikommen '+(i+1)):'Vorbeikommen'; return `<div class="watchrow"><span>${lab}</span><b>${clockFromStart(p.t)}</b><span class="t">in ${inMin} min</span></div>`; }).join(''); }
   }
   // Benachrichtigungen
-  if(typeof Notification!=='undefined'){
-    if(Notification.permission==='granted') html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv (neue Zwischenzeiten)</div>`;
-    else if(Notification.permission==='denied') html+=`<div class="watchhint">🔔 Benachrichtigungen blockiert – im Browser für diese Seite erlauben.</div>`;
-    else html+=`<button class="notifybtn" onclick="enableNotify()">🔔 Benachrichtigungen aktivieren</button>`;
+  if(typeof Notification==='undefined'){
+    html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
+  } else if(Notification.permission==='granted'){
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a></div>`;
+  } else if(Notification.permission==='denied'){
+    html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
+  } else {
+    html+=`<button class="notifybtn" onclick="enableNotify()">🔔 Benachrichtigungen aktivieren</button>`;
   }
   el.innerHTML=html;
 }
 // Lokale Benachrichtigungen bei neuer Ist-Zeit (während die Seite offen/aktiv ist)
 let notifySeen={};
 function enableNotify(){ if(typeof Notification!=='undefined'){ Notification.requestPermission().then(()=>renderWatch()); } }
+function testNotify(){ try{ new Notification('Test ✅', {body:'Benachrichtigungen funktionieren.'}); }catch(e){ alert('Benachrichtigung konnte nicht angezeigt werden: '+e.message); } }
 function notifyNewSplits(){
   if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
   const key=state.athlete, acts=state.liveActuals||{};
