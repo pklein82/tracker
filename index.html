@@ -949,7 +949,7 @@ function renderWatch(){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
     const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v4</span></div>`;
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v5</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
@@ -987,7 +987,12 @@ async function testNotify(){
   if(Notification.permission!=='granted'){ alert('Keine Berechtigung (Status: '+Notification.permission+').'); return; }
   const reg=await swRegistration(2000);
   if(reg && reg.showNotification){
-    try{ await reg.showNotification('Test ✅', {body:'Anzeige über Service Worker.'}); return; }
+    try{
+      await reg.showNotification('Test ✅', {body:'Anzeige über Service Worker.', requireInteraction:true, tag:'rt-test'});
+      let n=-1; try{ n=(await reg.getNotifications()).length; }catch(e){}
+      alert('showNotification ausgeführt (ohne Fehler).\nAktive Meldungen laut System: '+n+'\nScope: '+reg.scope+'\n\nSiehst du KEINE Meldung in der Leiste, blockiert Android den Anzeige-Kanal „Sites/Websites" für Chrome.');
+      return;
+    }
     catch(e){ alert('Service Worker da, Anzeige scheiterte: '+e.message); return; }
   }
   try{ new Notification('Test ✅', {body:'Direkte Anzeige.'}); }
