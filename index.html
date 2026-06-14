@@ -574,7 +574,10 @@ function actualMin(hm){
   const [h,m,s]=hm.split(':').map(x=>parseInt(x,10));
   if(isNaN(h)) return null;
   const ad=new Date(RACE_DATE.y,RACE_DATE.mo,RACE_DATE.d,h,m||0,s||0,0);
-  return (ad.getTime()-startDate().getTime())/60000; // inkl. Sekunden -> fraktionierte Minuten
+  let min=(ad.getTime()-startDate().getTime())/60000; // inkl. Sekunden -> fraktionierte Minuten
+  // Absicherung 12-Std-Feed ohne AM/PM: ein Durchgang kann nicht vor dem Start liegen -> +12 h
+  if(min < -60) min += 720;
+  return min;
 }
 
 // ---- Persistence ----
@@ -771,12 +774,20 @@ $('modal').addEventListener('click',e=>{ if(e.target===$('modal')) closeSheet();
 // ---- Live-Abruf (RTRT.me via Worker) ----
 function toHM(tod){
   if(tod==null||tod==='') return null;
-  let d=null;
-  if(typeof tod==='number' || /^\d+$/.test(String(tod))){
+  let d=null; const str=String(tod).trim();
+  if(typeof tod==='number' || /^\d+$/.test(str)){
     let n=Number(tod); if(n<1e12) n*=1000; d=new Date(n);
   } else {
-    d=new Date(String(tod).replace(' ','T'));
-    if(isNaN(d)){ const m=String(tod).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(m) return pad(+m[1])+':'+m[2]+':'+pad(m[3]?+m[3]:0); }
+    d=new Date(str.replace(' ','T'));
+    if(isNaN(d)){
+      const m=str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if(m){
+        let h=+m[1];
+        if(/p\.?m/i.test(str) && h<12) h+=12;      // 12-Std-Format: 1 PM -> 13
+        else if(/a\.?m/i.test(str) && h===12) h=0;  // 12 AM -> 0
+        return pad(h)+':'+m[2]+':'+pad(m[3]?+m[3]:0);
+      }
+    }
   }
   if(d&&!isNaN(d)) return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); // inkl. Sekunden
   return null;
@@ -954,7 +965,7 @@ function renderWatch(){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
     const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v6</span></div>`;
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v7</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
