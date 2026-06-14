@@ -117,10 +117,10 @@
   .cv{font-size:9px;color:var(--muted);margin-top:1.5px;letter-spacing:.01em;line-height:1.25}
   .cd{font-family:'Oswald';font-weight:700;font-size:11px;line-height:1;margin:1px 0 3px;min-height:11px}
   .delta.ahead{color:var(--ahead)} .delta.behind{color:var(--behind)} .delta.even{color:var(--finish)}
+  .ctime{font-size:12px;color:var(--text);font-weight:400}
   /* Plan am schwächsten */
   .col.plan{opacity:.6}
-  .col.plan .ct{font-weight:500;font-size:14px;color:var(--muted)}
-  .col.plan .discmain{font-weight:700;font-size:16px;color:var(--text);margin-top:1px}
+  .col.plan .ct{font-weight:700;font-size:16px;color:var(--text)}
   /* Hochrechnungen stärker */
   .col.hrp,.col.hri{background:var(--surface2)}
   .col.hrp .ct,.col.hri .ct{font-weight:700;font-size:18px;color:var(--text)}
@@ -393,7 +393,7 @@ function startDate(){
   const [h,m]=state.start.split(':').map(x=>parseInt(x,10));
   return new Date(RACE_DATE.y, RACE_DATE.mo, RACE_DATE.d, h||0, m||0, 0, 0);
 }
-function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function clockFromStart(min){ const d=new Date(startDate().getTime()+min*60000); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
 function totalMin(){ const d=state.dur; return d.swim+d.t1+d.bike+d.t2+d.run; }
 
 // ---- Athleten ----
@@ -547,10 +547,10 @@ function computeTimes(ms){
 // actual "HH:MM" -> minutes from start (handles cross-midnight unlikely here)
 function actualMin(hm){
   if(!hm) return null;
-  const [h,m]=hm.split(':').map(x=>parseInt(x,10));
+  const [h,m,s]=hm.split(':').map(x=>parseInt(x,10));
   if(isNaN(h)) return null;
-  const ad=new Date(RACE_DATE.y,RACE_DATE.mo,RACE_DATE.d,h,m||0,0,0);
-  return (ad.getTime()-startDate().getTime())/60000;
+  const ad=new Date(RACE_DATE.y,RACE_DATE.mo,RACE_DATE.d,h,m||0,s||0,0);
+  return (ad.getTime()-startDate().getTime())/60000; // inkl. Sekunden -> fraktionierte Minuten
 }
 
 // ---- Persistence ----
@@ -631,10 +631,10 @@ function render(){
       if(col!=='plan' && T[x.id].reached && x.id!=='START'){ const d=Math.round(v-T[x.id].plan); const c2=d===0?'even':(d<0?'ahead':'behind'); const s=d===0?'':(d<0?'−':'+'); delta=`<span class="delta ${c2}">${s}${Math.abs(d)} min</span>`; }
       return `<div class="col ${cls}">
         <div class="ch">${lab}</div>
-        ${col!=='plan'?`<div class="ct num">${clockFromStart(v)}</div>`:''}
+        <div class="ct num">${dIcon} ${hms(v-ref)}</div>
         <div class="cd">${delta}</div>
-        <div class="${col==='plan'?'ct num discmain':'cv num'}">${dIcon} ${hm(v-ref)}</div>
-        <div class="cv num">Σ ${hm(v)}</div>
+        ${col!=='plan'?`<div class="cv num ctime">${clockFromStart(v)}</div>`:''}
+        <div class="cv num">Σ ${hms(v)}</div>
         <div class="cv num">${spLine}</div>
       </div>`;
     };
@@ -743,9 +743,9 @@ function toHM(tod){
     let n=Number(tod); if(n<1e12) n*=1000; d=new Date(n);
   } else {
     d=new Date(String(tod).replace(' ','T'));
-    if(isNaN(d)){ const m=String(tod).match(/(\d{1,2}):(\d{2})/); if(m) return pad(+m[1])+':'+m[2]; }
+    if(isNaN(d)){ const m=String(tod).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(m) return pad(+m[1])+':'+m[2]+':'+pad(m[3]?+m[3]:0); }
   }
-  if(d&&!isNaN(d)) return pad(d.getHours())+':'+pad(d.getMinutes());
+  if(d&&!isNaN(d)) return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); // inkl. Sekunden
   return null;
 }
 function normalizeSplits(raw){
