@@ -95,6 +95,7 @@
   .sb-head .sb-cell{font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--muted)}
   .sb-leg{display:flex;flex-direction:column;line-height:1.15;border-left:3px solid transparent;padding-left:8px}
   .sb-row.swim .sb-leg{border-color:var(--swim)} .sb-row.bike .sb-leg{border-color:var(--bike)} .sb-row.run .sb-leg{border-color:var(--run)}
+  .sb-row.trans .sb-leg{border-color:var(--muted)} .sb-row.trans .sb-leg b{font-size:13px;color:var(--muted)}
   .sb-leg b{font-family:'Oswald';font-weight:600;font-size:15px}
   .sb-leg span{font-size:10.5px;color:var(--muted)}
   .sb-cell{font-family:'Oswald';font-size:16px;text-align:right}
@@ -720,9 +721,11 @@ function renderSplitBox(){
   const keys=Object.keys(ATHLETES);
   if(el.style&&el.style.setProperty) el.style.setProperty('--sb-cols', '1.3fr '+keys.map(()=>'1fr').join(' '));
   const legs=[
-    {cls:'swim', lab:'Schwimmen', d:'3,8 km', end:'SWIM',   start:'START'},
-    {cls:'bike', lab:'Rad',       d:'180 km', end:'BIKE',   start:'T1'},
-    {cls:'run',  lab:'Laufen',    d:'42 km',  end:'FINISH', start:'T2'},
+    {cls:'swim',  lab:'Schwimmen', d:'3,8 km',  end:'SWIM',   start:'START'},
+    {cls:'trans', lab:'Wechsel T1', d:'🔁',     end:'T1',     start:'SWIM'},
+    {cls:'bike',  lab:'Rad',       d:'180 km',  end:'BIKE',   start:'T1'},
+    {cls:'trans', lab:'Wechsel T2', d:'🔁',     end:'T2',     start:'BIKE'},
+    {cls:'run',   lab:'Laufen',    d:'42 km',   end:'FINISH', start:'T2'},
   ];
   let html='<div class="sb-row sb-head"><div class="sb-leg"></div>'+
     keys.map(k=>`<div class="sb-cell">${esc(ATHLETES[k].name.split(/\s+/)[0])}</div>`).join('')+'</div>';
