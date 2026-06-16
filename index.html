@@ -720,9 +720,9 @@ function renderSplitBox(){
   const keys=Object.keys(ATHLETES);
   if(el.style&&el.style.setProperty) el.style.setProperty('--sb-cols', '1.3fr '+keys.map(()=>'1fr').join(' '));
   const legs=[
-    {cls:'run',  lab:'Laufen',    d:'42 km',  end:'FINISH', start:'T2'},
-    {cls:'bike', lab:'Rad',       d:'180 km', end:'BIKE',   start:'T1'},
     {cls:'swim', lab:'Schwimmen', d:'3,8 km', end:'SWIM',   start:'START'},
+    {cls:'bike', lab:'Rad',       d:'180 km', end:'BIKE',   start:'T1'},
+    {cls:'run',  lab:'Laufen',    d:'42 km',  end:'FINISH', start:'T2'},
   ];
   let html='<div class="sb-row sb-head"><div class="sb-leg"></div>'+
     keys.map(k=>`<div class="sb-cell">${esc(ATHLETES[k].name.split(/\s+/)[0])}</div>`).join('')+'</div>';
