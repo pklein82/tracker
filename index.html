@@ -89,6 +89,17 @@
   .leg .d{font-family:'Oswald';font-weight:600;font-size:19px;margin-top:3px}
   .leg .l{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.3}
 
+  .splitbox{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:4px 12px 10px;margin-bottom:6px}
+  .sb-row{display:grid;grid-template-columns:var(--sb-cols,1.3fr 1fr 1fr 1fr);gap:8px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line)}
+  .sb-row.sb-head{border-top:0}
+  .sb-head .sb-cell{font-family:'Oswald';text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--muted)}
+  .sb-leg{display:flex;flex-direction:column;line-height:1.15;border-left:3px solid transparent;padding-left:8px}
+  .sb-row.swim .sb-leg{border-color:var(--swim)} .sb-row.bike .sb-leg{border-color:var(--bike)} .sb-row.run .sb-leg{border-color:var(--run)}
+  .sb-leg b{font-family:'Oswald';font-weight:600;font-size:15px}
+  .sb-leg span{font-size:10.5px;color:var(--muted)}
+  .sb-cell{font-family:'Oswald';font-size:16px;text-align:right}
+  .sb-cell.na{color:var(--muted)}
+
   /* LADDER (Karten mit 3 Spalten: Soll · HR Plan · HR Ist) */
   .ladder{position:relative}
   .rung{
@@ -250,6 +261,9 @@
 </header>
 
 <div class="wrap">
+  <div class="sec-title">Splitzeiten</div>
+  <div class="splitbox" id="splitbox"></div>
+
   <div class="sec-title">Strecke</div>
   <div class="watch" id="watch"></div>
 
@@ -697,6 +711,33 @@ function render(){
   updatePosition(T);
   updateOtherPositions();
   renderWatch();
+  renderSplitBox();
+}
+
+// Splitzeiten je Athlet (Disziplin-Dauer): unten 3,8 km Schwimmen, dann 180 km Rad, oben 42 km Laufen
+function renderSplitBox(){
+  const el=$('splitbox'); if(!el) return;
+  const keys=Object.keys(ATHLETES);
+  if(el.style&&el.style.setProperty) el.style.setProperty('--sb-cols', '1.3fr '+keys.map(()=>'1fr').join(' '));
+  const legs=[
+    {cls:'run',  lab:'Laufen',    d:'42 km',  end:'FINISH', start:'T2'},
+    {cls:'bike', lab:'Rad',       d:'180 km', end:'BIKE',   start:'T1'},
+    {cls:'swim', lab:'Schwimmen', d:'3,8 km', end:'SWIM',   start:'START'},
+  ];
+  let html='<div class="sb-row sb-head"><div class="sb-leg"></div>'+
+    keys.map(k=>`<div class="sb-cell">${esc(ATHLETES[k].name.split(/\s+/)[0])}</div>`).join('')+'</div>';
+  legs.forEach(L=>{
+    html+=`<div class="sb-row ${L.cls}"><div class="sb-leg"><b>${L.lab}</b><span>${L.d}</span></div>`;
+    html+=keys.map(k=>{
+      const t=withAthlete(k, ()=>{
+        const e=istMinOf(L.end), s=(L.start==='START')?0:istMinOf(L.start);
+        return (e==null||s==null)?null:(e-s);
+      });
+      return `<div class="sb-cell num${t==null?' na':''}">${t!=null?hms(t):'—'}</div>`;
+    }).join('');
+    html+='</div>';
+  });
+  el.innerHTML=html;
 }
 
 // Uhr + Rennzeit (sekündlich aktualisiert)
@@ -975,7 +1016,7 @@ function renderWatch(){
     html+=`<div class="watchhint">🔔 Benachrichtigungen hier nicht verfügbar. Auf dem iPhone: Seite über „Teilen → Zum Home-Bildschirm" installieren und von dort öffnen.</div>`;
   } else if(Notification.permission==='granted'){
     const sw = ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?'aktiv':'lädt…') : 'n/v';
-    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v9</span></div>`;
+    html+=`<div class="watchhint">🔔 Benachrichtigungen aktiv · <a href="#" onclick="testNotify();return false" style="color:var(--live)">testen</a> <span style="opacity:.55">· SW ${sw} · v10</span></div>`;
   } else if(Notification.permission==='denied'){
     html+=`<div class="watchhint">🔔 Blockiert – in den Browser-/Seiteneinstellungen für diese Seite erlauben.</div>`;
   } else {
