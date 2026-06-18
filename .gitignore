@@ -4,3 +4,8 @@ node_modules/
 *.log
 # Original-GPX mit Athletennamen bewusst nicht im Repo:
 *.gpx
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
